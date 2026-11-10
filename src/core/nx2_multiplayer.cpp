@@ -86,6 +86,12 @@ struct State {
     u64 puppet_actor = 0;
     u64 puppet_component = 0;
     bool puppet_preferred = false;
+    // Animation: the AS last queued for the puppet (-1 none) and the remote motion it is chosen by.
+    int puppet_as = -1;
+    u64 puppet_as_actor = 0;
+    std::array<float, 3> last_remote{};
+    std::chrono::steady_clock::time_point last_remote_time{};
+    float remote_speed = 0;
     u64 scan_generation = 0;
     u64 used_generation = 0;
     std::string network_status;
@@ -295,6 +301,133 @@ u32 Branch(u64 from, u64 to) {
     return 0x14000000 | ((static_cast<u32>((to - from) >> 2)) & 0x3FFFFFF);
 }
 
+// Puppet animation. The AS play call (main + 0x2022A0, what the AINB node ExecuteASPlay calls)
+// takes a 0x30-byte request: +0x00 actor, +0x08 AS name, +0x14 blend frames, +0x18 -1.0 -1.0,
+// +0x21 u8 (zero from the game; 0x5A marks ours), +0x28 node (may be null).
+// - A filter at its entry refuses requests for the puppet actor (control block + 8) that are not
+//   ours, so its own AI no longer drives its animations.
+// - A hook at a dispatch the game runs constantly (main + 0x18D6034, blr x8) swaps the pending
+//   request pointer at the start of a scratch area after the main module's .bss (unused, mapped
+//   read-write) with zero and, if there was one, plays it on that game thread.
+constexpr u64 PlayOffset = 0x2022A0;
+constexpr u32 PlayFirstInstruction = 0xD503237F; // pacibsp
+constexpr u64 DispatchOffset = 0x18D6034;
+constexpr u32 DispatchInstruction = 0xD63F0100; // blr x8
+constexpr u64 HookCaveOffset = CaveOffset + 0x600;
+constexpr u64 FilterCaveOffset = CaveOffset + 0x680;
+constexpr u64 NamesOffset = CaveOffset + 0x700; // "Wait", "Move", "Jump", 16 bytes apart
+constexpr u64 ScratchOffset = 0x4E9A500; // pending request pointer, request at + 0x40
+constexpr u8 OurRequest = 0x5A;
+
+u32 Literal(u64 from, u64 literal, u32 rt) {
+    return 0x58000000 | ((static_cast<u32>((literal - from) >> 2) & 0x7FFFF) << 5) | rt;
+}
+
+u32 BranchLink(u64 from, u64 to) {
+    return 0x94000000 | ((static_cast<u32>((to - from) >> 2)) & 0x3FFFFFF);
+}
+
+bool InstallAnimationHooks(Kernel::KProcess& process, u64 base) {
+    auto& memory = process.GetMemory();
+    const u64 play = base + PlayOffset;
+    const u64 dispatch = base + DispatchOffset;
+    const u64 hook = base + HookCaveOffset;
+    const u64 filter = base + FilterCaveOffset;
+    const u64 scratch = base + ScratchOffset;
+    const u64 control = base + ControlOffset;
+    u32 play_first = 0;
+    u32 dispatch_instruction = 0;
+    std::array<u8, 0x200> free_cave{};
+    std::array<u8, 0x80> free_scratch{};
+    if (!Read(memory, play, play_first) || !Read(memory, dispatch, dispatch_instruction) ||
+        !Read(memory, hook, free_cave) || !Read(memory, scratch, free_scratch) ||
+        play_first != PlayFirstInstruction || dispatch_instruction != DispatchInstruction ||
+        std::ranges::any_of(free_cave, [](u8 byte) { return byte != 0; }) ||
+        std::ranges::any_of(free_scratch, [](u8 byte) { return byte != 0; })) {
+        LOG_ERROR(Core, "Nx2 multiplayer: the animation hooks do not match this game build");
+        return false;
+    }
+    const std::array<u32, 16> hook_code{
+        0xA9BC7BFD, // stp x29, x30, [sp, #-0x40]!
+        0xA90107E0, // stp x0, x1, [sp, #0x10]
+        0xA9020FE2, // stp x2, x3, [sp, #0x20]
+        0xA90323E4, // stp x4, x8, [sp, #0x30]
+        Literal(hook + 0x10, hook + 0x40, 16), // ldr x16, scratch
+        0xAA1F03F1, // mov x17, xzr
+        0xF8F18200, // swpal x17, x0, [x16]
+        0xB4000040, // cbz x0, +8
+        BranchLink(hook + 0x20, play),
+        0xA94323E4, // ldp x4, x8, [sp, #0x30]
+        0xA9420FE2, // ldp x2, x3, [sp, #0x20]
+        0xA94107E0, // ldp x0, x1, [sp, #0x10]
+        0xA8C47BFD, // ldp x29, x30, [sp], #0x40
+        DispatchInstruction,
+        Branch(hook + 0x38, dispatch + 4),
+        0,
+    };
+    const std::array<u32, 12> filter_code{
+        0xF9400010, // ldr x16, [x0]            (the request's actor)
+        Literal(filter + 0x04, filter + 0x40, 17), // ldr x17, control
+        0xF9400631, // ldr x17, [x17, #8]      (the puppet actor)
+        0xEB11021F, // cmp x16, x17
+        0x540000C1, // b.ne +24 (play it)
+        0x39408410, // ldrb w16, [x0, #0x21]
+        0x71016A1F, // cmp w16, #0x5a
+        0x54000060, // b.eq +12 (ours: play it)
+        0x2A1F03E0, // mov w0, wzr (the puppet's own AI: refused)
+        0xD65F03C0, // ret
+        PlayFirstInstruction,
+        Branch(filter + 0x2C, play + 4),
+    };
+    u8* const hook_host = memory.GetPointerSilent(hook);
+    u8* const filter_host = memory.GetPointerSilent(filter);
+    u8* const names_host = memory.GetPointerSilent(base + NamesOffset);
+    u8* const play_host = memory.GetPointerSilent(play);
+    u8* const dispatch_host = memory.GetPointerSilent(dispatch);
+    if (!hook_host || !filter_host || !names_host || !play_host || !dispatch_host) {
+        return false;
+    }
+    std::memcpy(hook_host, hook_code.data(), sizeof(hook_code));
+    std::memcpy(hook_host + 0x40, &scratch, sizeof(scratch));
+    std::memcpy(filter_host, filter_code.data(), sizeof(filter_code));
+    std::memcpy(filter_host + 0x40, &control, sizeof(control));
+    std::memcpy(names_host + 0x00, "Wait", 5);
+    std::memcpy(names_host + 0x10, "Move", 5);
+    std::memcpy(names_host + 0x20, "Jump", 5);
+    const u32 to_filter = Branch(play, filter);
+    const u32 to_hook = Branch(dispatch, hook);
+    std::memcpy(play_host, &to_filter, 4);
+    std::memcpy(dispatch_host, &to_hook, 4);
+    Core::InvalidateInstructionCacheRange(&process, play, 4);
+    Core::InvalidateInstructionCacheRange(&process, dispatch, 4);
+    Core::InvalidateInstructionCacheRange(&process, hook, 0x180);
+    LOG_INFO(Core, "Nx2 multiplayer: animation hooks installed (play {:#x}, dispatch {:#x})", play,
+             dispatch);
+    return true;
+}
+
+/// Queues an AS for the puppet (index into the names: 0 Wait, 1 Move, 2 Jump): the dispatch hook
+/// plays it on the next game thread that passes there.
+void QueuePuppetAs(Kernel::KProcess& process, u64 base, u64 actor, int name) {
+    u8* const scratch = process.GetMemory().GetPointerSilent(base + ScratchOffset);
+    if (scratch == nullptr) {
+        return;
+    }
+    std::array<u8, 0x30> request{};
+    const u64 name_address = base + NamesOffset + static_cast<u64>(name) * 0x10;
+    const float blend = 6.0f;
+    const float unset = -1.0f;
+    std::memcpy(request.data() + 0x00, &actor, 8);
+    std::memcpy(request.data() + 0x08, &name_address, 8);
+    std::memcpy(request.data() + 0x14, &blend, 4);
+    std::memcpy(request.data() + 0x18, &unset, 4);
+    std::memcpy(request.data() + 0x1C, &unset, 4);
+    request[0x21] = OurRequest;
+    std::memcpy(scratch + 0x40, request.data(), request.size());
+    const u64 pending = base + ScratchOffset + 0x40;
+    std::atomic_ref<u64>{*reinterpret_cast<u64*>(scratch)}.store(pending, std::memory_order_release);
+}
+
 bool InstallPuppetDetour(Kernel::KProcess& process, u64 base) {
     auto& memory = process.GetMemory();
     const u64 getter = base + GetterOffset;
@@ -386,6 +519,7 @@ bool InstallPuppetDetour(Kernel::KProcess& process, u64 base) {
     Core::InvalidateInstructionCacheRange(&process, getter, 4);
     Core::InvalidateInstructionCacheRange(&process, cave, 0x100);
     LOG_INFO(Core, "Nx2 multiplayer: puppet detour installed at {:#x} (cave {:#x})", getter, cave);
+    InstallAnimationHooks(process, base);
     return true;
 }
 
@@ -503,6 +637,9 @@ std::string UpdatePuppet(State& state, Kernel::KProcess& process, u64 base, cons
     }
     const auto set_component = [&](u64 component) {
         std::memcpy(control, &component, sizeof(component));
+        // The animation filter refuses the puppet actor's own AS requests.
+        const u64 actor = component != 0 ? state.puppet_actor : 0;
+        std::memcpy(control + 8, &actor, sizeof(actor));
     };
     if (!remote.valid) {
         set_component(0);
@@ -609,6 +746,35 @@ std::string UpdatePuppet(State& state, Kernel::KProcess& process, u64 base, cons
     return fmt::format("puppet: actor {:#x}", state.puppet_actor);
 }
 
+/// Plays Move while the remote player moves and Wait while it stands, on the puppet.
+void UpdatePuppetAnimation(State& state, Kernel::KProcess& process, u64 base, const Player& remote) {
+    const auto now = std::chrono::steady_clock::now();
+    if (!remote.valid || state.puppet_actor == 0) {
+        state.puppet_as = -1;
+        return;
+    }
+    const float dt = std::chrono::duration<float>(now - state.last_remote_time).count();
+    if (dt >= 0.1f) {
+        float moved = 0;
+        for (int i = 0; i < 3; ++i) {
+            moved += (remote.position[i] - state.last_remote[i]) * (remote.position[i] - state.last_remote[i]);
+        }
+        const float speed = std::sqrt(moved) / dt;
+        // Eased, and a jump (scene change) does not count as running.
+        state.remote_speed = speed > 30.0f ? 0.0f : state.remote_speed * 0.5f + speed * 0.5f;
+        state.last_remote = remote.position;
+        state.last_remote_time = now;
+    }
+    const int wanted = state.remote_speed > 0.8f ? 1 : 0;
+    if (wanted != state.puppet_as || state.puppet_as_actor != state.puppet_actor) {
+        QueuePuppetAs(process, base, state.puppet_actor, wanted);
+        LOG_INFO(Core, "Nx2 multiplayer: puppet plays {} (remote speed {:.1f})",
+                 wanted == 1 ? "Move" : "Wait", state.remote_speed);
+        state.puppet_as = wanted;
+        state.puppet_as_actor = state.puppet_actor;
+    }
+}
+
 } // Anonymous namespace
 
 void Shutdown() {
@@ -679,6 +845,7 @@ Frame Tick(Core::System& system) {
         if (state.puppet_installed && link) {
             WritePuppet(*process, state.main_base, frame.remote);
             puppet_status = UpdatePuppet(state, *process, state.main_base, *link, frame.remote);
+            UpdatePuppetAnimation(state, *process, state.main_base, frame.remote);
         }
     }
     frame.valid = link && ReadCamera(memory, state.main_base, *link, frame);
