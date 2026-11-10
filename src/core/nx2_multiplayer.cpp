@@ -553,21 +553,33 @@ std::string UpdatePuppet(State& state, Kernel::KProcess& process, u64 base, cons
         }
         return "puppet: looking for actors";
     }
-    // An actor with the preferred name first, at any distance.
+    // An actor with the preferred name first, the one whose physics body (the component's own
+    // matrix, which the detour leaves alone) is farthest from Link: a Dark Link far away idles
+    // (its AI sleeps out of range) while it is drawn where the remote player is.
     state.puppet_preferred = false;
+    float farthest = -1.0f;
     for (const u64 actor : actors) {
         if (NameOf(memory, actor) != PreferredPuppet()) {
             continue;
         }
-        if (const auto component = ComponentOf(memory, actor)) {
+        const auto component = ComponentOf(memory, actor);
+        std::array<float, 12> body;
+        if (!component || !Read(memory, *component + 0x80, body)) {
+            continue;
+        }
+        const float d = distance({body[3], body[7], body[11]}, link.position);
+        if (d > farthest) {
+            farthest = d;
             state.puppet_actor = actor;
             state.puppet_component = *component;
             state.puppet_preferred = true;
-            LOG_INFO(Core, "Nx2 multiplayer: puppet is {} {:#x} (component {:#x})", PreferredPuppet(),
-                     actor, *component);
-            set_component(state.puppet_component);
-            return fmt::format("puppet: {} {:#x}", PreferredPuppet(), actor);
         }
+    }
+    if (state.puppet_preferred) {
+        LOG_INFO(Core, "Nx2 multiplayer: puppet is {} {:#x} (component {:#x}), body {:.1f} from Link",
+                 PreferredPuppet(), state.puppet_actor, state.puppet_component, farthest);
+        set_component(state.puppet_component);
+        return fmt::format("puppet: {} {:#x}", PreferredPuppet(), state.puppet_actor);
     }
     // Link's own components (he is the actor at his exact position and his parts around it).
     float best = 1e9f;
