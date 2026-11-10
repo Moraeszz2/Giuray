@@ -12,7 +12,8 @@ class System;
 /// Ocarina of Time multiplayer prototype (EDEN_NX2_MP=1). Each Tick reads the local Link and the
 /// camera through pointer chains from the main module, sends Link's state by UDP to
 /// EDEN_NX2_MP_PEER (ip:port) and receives the peer's on EDEN_NX2_MP_PORT (default 7777).
-/// EDEN_NX2_MP_GHOST=1 replays the local Link three seconds late as the remote player instead.
+/// EDEN_NX2_MP_NAME names the local player for the peer (default "P1"). EDEN_NX2_MP_GHOST=1
+/// replays the local Link three seconds late as the remote player instead.
 namespace Core::Nx2Multiplayer {
 
 struct Player {
@@ -20,6 +21,7 @@ struct Player {
     std::array<float, 3> position{};
     /// Facing direction on the ground plane (X, Z), from the actor's rotation.
     std::array<float, 2> facing{};
+    std::string name;
 };
 
 struct Frame {

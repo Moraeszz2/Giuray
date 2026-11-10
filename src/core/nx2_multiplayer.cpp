@@ -55,6 +55,7 @@ struct Packet {
     u32 sequence;
     float position[3];
     float facing[2];
+    char name[16];
 };
 
 struct State {
@@ -218,6 +219,7 @@ void Exchange(State& state, const Player& local) {
         state.ghost.emplace_back(now, local);
         while (!state.ghost.empty() && now - state.ghost.front().first > std::chrono::seconds{3}) {
             state.remote = state.ghost.front().second;
+            state.remote.name = "Ghost";
             state.remote_time = now;
             state.ghost.pop_front();
         }
@@ -228,9 +230,11 @@ void Exchange(State& state, const Player& local) {
     }
     boost::system::error_code error;
     if (state.peer && local.valid) {
-        const Packet packet{PacketMagic, ++state.sequence,
-                            {local.position[0], local.position[1], local.position[2]},
-                            {local.facing[0], local.facing[1]}};
+        Packet packet{PacketMagic, ++state.sequence,
+                      {local.position[0], local.position[1], local.position[2]},
+                      {local.facing[0], local.facing[1]}, {}};
+        const char* name = Env("EDEN_NX2_MP_NAME");
+        std::strncpy(packet.name, name ? name : "P1", sizeof(packet.name) - 1);
         state.socket->send_to(boost::asio::buffer(&packet, sizeof(packet)), *state.peer, 0, error);
     }
     for (;;) {
@@ -243,9 +247,11 @@ void Exchange(State& state, const Player& local) {
         if (packet.magic != PacketMagic) {
             continue;
         }
+        packet.name[sizeof(packet.name) - 1] = '\0';
         state.remote = {.valid = true,
                         .position = {packet.position[0], packet.position[1], packet.position[2]},
-                        .facing = {packet.facing[0], packet.facing[1]}};
+                        .facing = {packet.facing[0], packet.facing[1]},
+                        .name = packet.name};
         state.remote_time = now;
     }
     if (now - state.remote_time > std::chrono::seconds{2}) {

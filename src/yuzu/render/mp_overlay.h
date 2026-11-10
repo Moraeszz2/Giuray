@@ -26,4 +26,7 @@ private:
     QWidget* render_window;
     QTimer timer;
     Core::Nx2Multiplayer::Frame frame;
+    /// The remote position eased toward each received one, so the marker glides between packets.
+    std::array<float, 3> shown{};
+    bool shown_valid = false;
 };

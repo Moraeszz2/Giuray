@@ -59,6 +59,24 @@ void MultiplayerOverlay::Tick() {
     if (QtCommon::system) {
         frame = Core::Nx2Multiplayer::Tick(*QtCommon::system);
     }
+    if (frame.remote.valid) {
+        const auto& target = frame.remote.position;
+        float jump = 0;
+        for (int i = 0; i < 3; ++i) {
+            jump += (target[i] - shown[i]) * (target[i] - shown[i]);
+        }
+        // Snap on the first packet and after a teleport (scene change, warp).
+        if (!shown_valid || jump > 25.0f * 25.0f) {
+            shown = target;
+        } else {
+            for (int i = 0; i < 3; ++i) {
+                shown[i] += (target[i] - shown[i]) * 0.35f;
+            }
+        }
+        shown_valid = true;
+    } else {
+        shown_valid = false;
+    }
     if (render_window && render_window->isVisible()) {
         const QRect area{render_window->mapToGlobal(QPoint{0, 0}), render_window->size()};
         if (geometry() != area) {
@@ -105,7 +123,7 @@ void MultiplayerOverlay::paintEvent(QPaintEvent*) {
         out = {left + (ndc_x + 1) / 2 * view_w, top + (1 - ndc_y) / 2 * view_h};
         return true;
     };
-    const auto& feet = frame.remote.position;
+    const auto& feet = shown;
     const std::array<float, 3> head{feet[0], feet[1] + 1.4f, feet[2]};
     QPointF feet_point;
     QPointF head_point;
@@ -118,5 +136,27 @@ void MultiplayerOverlay::paintEvent(QPaintEvent*) {
     painter.setBrush(QColor{40, 255, 120, 70});
     painter.drawEllipse(QPointF{feet_point.x(), feet_point.y() - height_px / 2}, radius,
                         std::max(radius, height_px / 2));
-    painter.drawText(head_point + QPointF{-10, -6}, QStringLiteral("P2"));
+    // Facing: an arrow on the ground, one unit ahead of the feet.
+    const auto& facing = frame.remote.facing;
+    const float facing_length = std::sqrt(facing[0] * facing[0] + facing[1] * facing[1]);
+    QPointF ahead_point;
+    if (facing_length > 0.01f &&
+        project({feet[0] + facing[0] / facing_length, feet[1], feet[2] + facing[1] / facing_length},
+                ahead_point)) {
+        painter.setPen(QPen{QColor{255, 230, 60, 240}, 3});
+        painter.drawLine(feet_point, ahead_point);
+        const QPointF direction = ahead_point - feet_point;
+        const float length = std::hypot(direction.x(), direction.y());
+        if (length > 4) {
+            const QPointF unit = direction / length;
+            const QPointF side{-unit.y(), unit.x()};
+            const float tip = std::min(12.0f, length * 0.4f);
+            painter.drawLine(ahead_point, ahead_point - unit * tip + side * tip * 0.6);
+            painter.drawLine(ahead_point, ahead_point - unit * tip - side * tip * 0.6);
+        }
+    }
+    const QString name = frame.remote.name.empty() ? QStringLiteral("P2")
+                                                   : QString::fromStdString(frame.remote.name);
+    painter.setPen(QColor{40, 255, 120, 255});
+    painter.drawText(head_point + QPointF{-10, -6}, name);
 }
