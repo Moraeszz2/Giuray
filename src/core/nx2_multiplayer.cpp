@@ -85,6 +85,9 @@ struct State {
     std::array<float, 3> scan_origin{};
     u64 puppet_actor = 0;
     u64 puppet_component = 0;
+    bool puppet_preferred = false;
+    u64 scan_generation = 0;
+    u64 used_generation = 0;
     std::string network_status;
 };
 
@@ -460,13 +463,37 @@ void StartScan(State& state, Kernel::KProcess& process, u64 base) {
         {
             std::scoped_lock lock{state.scan_mutex};
             state.scanned_actors = std::move(actors);
+            ++state.scan_generation;
         }
         state.scanning = false;
     });
 }
 
-/// Keeps a puppet chosen: the nearest actor 2 to 25 units from Link with a physics component,
-/// none of Link's own parts. Returns a short status.
+/// The actor's name (actor + 0x260 points to it, e.g. "Player_Child").
+std::string NameOf(Core::Memory::Memory& memory, u64 actor) {
+    u64 pointer = 0;
+    std::array<char, 64> text{};
+    if (!Read(memory, actor + 0x260, pointer) || pointer == 0 || !Read(memory, pointer, text)) {
+        return {};
+    }
+    text.back() = '\0';
+    return std::string{text.data()};
+}
+
+/// The actor a puppet is preferably made of (EDEN_NX2_MP_PUPPET_NAME): Dark Link has Link's body
+/// and animations.
+const std::string& PreferredPuppet() {
+    static const std::string name = [] {
+        const char* value = Env("EDEN_NX2_MP_PUPPET_NAME");
+        return std::string{value ? value : "Enemy_MiddleBoss_DarkLink"};
+    }();
+    return name;
+}
+
+/// Keeps a puppet chosen: an actor named PreferredPuppet() if one exists, else the nearest actor
+/// 2 to 25 units from Link with a physics component, none of Link's own parts. While the puppet
+/// is not the preferred actor, the actors are scanned again every 5 s to find one (it may be
+/// created later). Returns a short status.
 std::string UpdatePuppet(State& state, Kernel::KProcess& process, u64 base, const Player& link,
                          const Player& remote) {
     auto& memory = process.GetMemory();
@@ -487,11 +514,25 @@ std::string UpdatePuppet(State& state, Kernel::KProcess& process, u64 base, cons
     };
     const auto now = std::chrono::steady_clock::now();
     // Still valid: the component chain holds and no scene change moved Link far away.
-    if (state.puppet_component != 0 && ComponentOf(memory, state.puppet_actor) == state.puppet_component &&
-        distance(link.position, state.scan_origin) < 40.0f) {
-        set_component(state.puppet_component);
-        return fmt::format("puppet: actor {:#x}", state.puppet_actor);
+    u64 generation;
+    {
+        std::scoped_lock lock{state.scan_mutex};
+        generation = state.scan_generation;
     }
+    const bool fresh_scan = generation != state.used_generation;
+    if (state.puppet_component != 0 && ComponentOf(memory, state.puppet_actor) == state.puppet_component &&
+        distance(link.position, state.scan_origin) < 40.0f &&
+        (state.puppet_preferred || !fresh_scan)) {
+        if (!state.puppet_preferred && !state.scanning &&
+            now - state.last_scan > std::chrono::seconds{5}) {
+            state.last_scan = now;
+            StartScan(state, process, base);
+        }
+        set_component(state.puppet_component);
+        return fmt::format("puppet: {} {:#x}", state.puppet_preferred ? PreferredPuppet() : "actor",
+                           state.puppet_actor);
+    }
+    state.used_generation = generation;
     set_component(0);
     state.puppet_actor = 0;
     state.puppet_component = 0;
@@ -511,6 +552,22 @@ std::string UpdatePuppet(State& state, Kernel::KProcess& process, u64 base, cons
             StartScan(state, process, base);
         }
         return "puppet: looking for actors";
+    }
+    // An actor with the preferred name first, at any distance.
+    state.puppet_preferred = false;
+    for (const u64 actor : actors) {
+        if (NameOf(memory, actor) != PreferredPuppet()) {
+            continue;
+        }
+        if (const auto component = ComponentOf(memory, actor)) {
+            state.puppet_actor = actor;
+            state.puppet_component = *component;
+            state.puppet_preferred = true;
+            LOG_INFO(Core, "Nx2 multiplayer: puppet is {} {:#x} (component {:#x})", PreferredPuppet(),
+                     actor, *component);
+            set_component(state.puppet_component);
+            return fmt::format("puppet: {} {:#x}", PreferredPuppet(), actor);
+        }
     }
     // Link's own components (he is the actor at his exact position and his parts around it).
     float best = 1e9f;
