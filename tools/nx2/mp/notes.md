@@ -55,3 +55,14 @@
   [main+0x4C7E0B8] (scale?), +0x40 u64 from the node, +0x98 u8 3; the rest zero.
 - Next: a cave that calls it once on a request from the control block, hooked into a function
   the game runs every frame on a game thread; first actor to try: Dark Link (name from romfs).
+
+# Animation, first look (2026-11-10 night, mp10 with u32 scan_memory)
+- find_anim.py / anim_states.py: 254 words differ standing vs walking, but they are list or heap
+  bookkeeping (246 of them in one block of pointers that fills while Link moves); no clean
+  animation state id found, and walk vs run (half vs full stick) gave the same words.
+- Dark Link as puppet keeps its own boss AI animations (swings at Link) while its body falls far
+  away (spawned off the floor): harmless, still drawn at the remote player's place.
+- Two ways forward: (1) find the ActionSeq "play AS by name" call the AINB AS nodes make
+  (ExecuteASOneShot..., like the actor create call) and drive Dark Link's AS from Lichii;
+  (2) copy Link's skeleton pose (bone matrices) onto Dark Link each frame, which needs a hook
+  between the animation update and the draw.

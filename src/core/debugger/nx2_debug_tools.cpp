@@ -790,7 +790,30 @@ json ScanMemory(ToolState& state, const json& params) {
     const float min_change = params.value("min_change", 0.0f);
     const float low = params.value("min", -std::numeric_limits<float>::infinity());
     const float high = params.value("max", std::numeric_limits<float>::infinity());
-    const auto keep = [&](float before, float now) {
+    // type "u32" compares the raw 32-bit words (state ids, hashes, counters) instead of floats;
+    // "equal" then keeps words equal to `value`.
+    const bool integer = params.value("type", std::string{"f32"}) == "u32";
+    const u32 wanted = params.value("value", 0u);
+    const auto keep = [&](float before_float, float now_float) {
+        if (integer) {
+            const u32 before = std::bit_cast<u32>(before_float);
+            const u32 now = std::bit_cast<u32>(now_float);
+            if (mode == "changed") {
+                return now != before;
+            }
+            if (mode == "unchanged") {
+                return now == before;
+            }
+            if (mode == "equal") {
+                return now == wanted;
+            }
+            if (mode == "any") {
+                return true;
+            }
+            throw std::runtime_error{fmt::format("mode \"{}\" for u32: want changed, unchanged, equal or any", mode)};
+        }
+        const float before = before_float;
+        const float now = now_float;
         if (!std::isfinite(now) || now < low || now > high) {
             return false;
         }
@@ -836,7 +859,7 @@ json ScanMemory(ToolState& state, const json& params) {
                 float new_value;
                 std::memcpy(&old_value, before + offset, sizeof(old_value));
                 std::memcpy(&new_value, current + offset, sizeof(new_value));
-                if (std::isfinite(old_value) && keep(old_value, new_value)) {
+                if ((integer || std::isfinite(old_value)) && keep(old_value, new_value)) {
                     addresses.push_back(scan.page_addresses[page] + offset);
                     values.push_back(new_value);
                 }
@@ -859,7 +882,11 @@ json ScanMemory(ToolState& state, const json& params) {
     const size_t show = Param<size_t>(params, "show", 20, 0, 1000);
     json shown = json::array();
     for (size_t index = 0; index < (std::min)(show, scan.addresses.size()); ++index) {
-        shown.push_back({{"address", HexAddress(scan.addresses[index])}, {"value", scan.values[index]}});
+        json value = scan.values[index];
+        if (integer) {
+            value = std::bit_cast<u32>(scan.values[index]);
+        }
+        shown.push_back({{"address", HexAddress(scan.addresses[index])}, {"value", std::move(value)}});
     }
     return {{"count", scan.addresses.size()}, {"candidates", std::move(shown)}};
 }
