@@ -31,7 +31,8 @@ while True:
             if magic == MAGIC:
                 received += 1
                 center = (x, y, z)
-    except socket.timeout:
+    except (socket.timeout, ConnectionResetError):
+        # Windows reports a closed Lichii (port unreachable) as a reset on the next receive.
         pass
     now = time.time()
     if center:

@@ -16,6 +16,7 @@
 
 #include "common/common_types.h"
 #include "common/logging.h"
+#include "core/arm/debug.h"
 #include "core/core.h"
 #include "core/hle/kernel/k_page_table.h"
 #include "core/hle/kernel/k_process.h"
@@ -69,6 +70,7 @@ struct State {
     std::chrono::steady_clock::time_point remote_time{};
     std::deque<std::pair<std::chrono::steady_clock::time_point, Player>> ghost;
     bool ghost_mode = false;
+    bool puppet_installed = false;
     std::string network_status;
 };
 
@@ -259,6 +261,140 @@ void Exchange(State& state, const Player& local) {
     }
 }
 
+// Puppet (EDEN_NX2_MP_PUPPET=1): a detour at the start of the physics component's world matrix
+// getter (main + 0x136AA0, called by the actor transform update at main + 0x136AE4). For the
+// component stored in the control block, it returns the control block's matrix instead, so that
+// actor is drawn where the remote player is. The code and the control block live in the zero
+// padding at the end of the main module's .text; the guest only reads them.
+constexpr u64 GetterOffset = 0x136AA0;
+constexpr u32 GetterFirstInstruction = 0xF9412808; // ldr x8, [x0, #0x250]
+constexpr u32 GetterSecondInstruction = 0x1E2E1001; // fmov s1, #1.0
+constexpr u64 CaveOffset = 0x3C46400;
+constexpr u64 ControlOffset = CaveOffset + 0x40; // u64 component, u64 pad, 3 rows of 4 floats
+
+u32 Branch(u64 from, u64 to) {
+    return 0x14000000 | ((static_cast<u32>((to - from) >> 2)) & 0x3FFFFFF);
+}
+
+bool InstallPuppetDetour(Kernel::KProcess& process, u64 base) {
+    auto& memory = process.GetMemory();
+    const u64 getter = base + GetterOffset;
+    const u64 cave = base + CaveOffset;
+    u32 first = 0;
+    u32 second = 0;
+    std::array<u8, 0x100> cave_bytes{};
+    if (!Read(memory, getter, first) || !Read(memory, getter + 4, second) ||
+        !Read(memory, cave, cave_bytes)) {
+        return false;
+    }
+    if (first == Branch(getter, cave)) {
+        return true;
+    }
+    if (first != GetterFirstInstruction || second != GetterSecondInstruction ||
+        std::ranges::any_of(cave_bytes, [](u8 byte) { return byte != 0; })) {
+        LOG_ERROR(Core, "Nx2 multiplayer: the puppet detour does not match this game build");
+        return false;
+    }
+    const u64 control = base + ControlOffset;
+    const u32 adr_offset = static_cast<u32>(control - cave);
+    const std::array<u32, 7> code{
+        // adr x16, control
+        0x10000010 | ((adr_offset & 3) << 29) | (((adr_offset >> 2) & 0x7FFFF) << 5),
+        0xF9400211, // ldr x17, [x16]
+        0xEB00023F, // cmp x17, x0
+        0x54000061, // b.ne +12 (to the original first instruction)
+        0x91004200, // add x0, x16, #16
+        0xD65F03C0, // ret
+        GetterFirstInstruction,
+    };
+    const u32 back = Branch(cave + code.size() * 4, getter + 4);
+    u8* const cave_host = memory.GetPointerSilent(cave);
+    u8* const getter_host = memory.GetPointerSilent(getter);
+    if (cave_host == nullptr || getter_host == nullptr) {
+        return false;
+    }
+    std::memcpy(cave_host, code.data(), code.size() * 4);
+    std::memcpy(cave_host + code.size() * 4, &back, 4);
+
+    // The transform update also copies the component's matrix (x27 + 0x80, three rows) to its
+    // output (x21) itself at two places: for the puppet, copy the control block's rows instead.
+    constexpr std::array<std::pair<u64, u64>, 2> copy_sites{{
+        {0x137858, 0x137870}, // ldr q0, [x27, #0x80] ... str q0, [x21, #0x20]
+        {0x1382CC, 0x1382E4},
+    }};
+    for (size_t index = 0; index < copy_sites.size(); ++index) {
+        const u64 site = base + copy_sites[index].first;
+        const u64 resume = base + copy_sites[index].second;
+        const u64 site_cave = cave + 0x80 + index * 0x40;
+        u32 original = 0;
+        if (!Read(memory, site, original) || original != 0x3DC02360) {
+            LOG_ERROR(Core, "Nx2 multiplayer: copy site {:#x} does not match this game build", site);
+            return false;
+        }
+        const auto adr_x17 = [&](u64 at, u64 target) {
+            const u32 offset = static_cast<u32>(target - at);
+            return 0x10000011u | ((offset & 3) << 29) | (((offset >> 2) & 0x7FFFF) << 5);
+        };
+        std::array<u32, 14> site_code{
+            adr_x17(site_cave, control),
+            0xF9400231, // ldr x17, [x17]
+            0xEB1B023F, // cmp x17, x27
+            0x54000121, // b.ne +36 (to the original load)
+            adr_x17(site_cave + 16, control + 16),
+            0x3DC00220, // ldr q0, [x17]
+            0x3D8002A0, // str q0, [x21]
+            0x3DC00620, // ldr q0, [x17, #16]
+            0x3D8006A0, // str q0, [x21, #16]
+            0x3DC00A20, // ldr q0, [x17, #32]
+            0x3D800AA0, // str q0, [x21, #32]
+            Branch(site_cave + 44, resume),
+            0x3DC02360, // ldr q0, [x27, #0x80]
+            Branch(site_cave + 52, site + 4),
+        };
+        u8* const site_cave_host = memory.GetPointerSilent(site_cave);
+        u8* const site_host = memory.GetPointerSilent(site);
+        if (site_cave_host == nullptr || site_host == nullptr) {
+            return false;
+        }
+        std::memcpy(site_cave_host, site_code.data(), sizeof(site_code));
+        const u32 jump = Branch(site, site_cave);
+        std::memcpy(site_host, &jump, 4);
+        Core::InvalidateInstructionCacheRange(&process, site, 4);
+    }
+
+    const u32 detour = Branch(getter, cave);
+    std::memcpy(getter_host, &detour, 4);
+    Core::InvalidateInstructionCacheRange(&process, getter, 4);
+    Core::InvalidateInstructionCacheRange(&process, cave, 0x100);
+    LOG_INFO(Core, "Nx2 multiplayer: puppet detour installed at {:#x} (cave {:#x})", getter, cave);
+    return true;
+}
+
+/// The control block's matrix: the remote player's position, facing its direction.
+void WritePuppet(Kernel::KProcess& process, u64 base, const Player& remote) {
+    u8* const control = process.GetMemory().GetPointerSilent(base + ControlOffset);
+    if (control == nullptr || !remote.valid) {
+        return;
+    }
+    float fx = remote.facing[0];
+    float fz = remote.facing[1];
+    const float length = std::sqrt(fx * fx + fz * fz);
+    if (length < 0.01f) {
+        fx = 0;
+        fz = 1;
+    } else {
+        fx /= length;
+        fz /= length;
+    }
+    // Rows of a 3x4 world matrix; the third row is the forward axis (as in the actor rotation).
+    const std::array<float, 12> matrix{
+        fz,  0, -fx, remote.position[0],
+        0,   1, 0,   remote.position[1],
+        fx,  0, fz,  remote.position[2],
+    };
+    std::memcpy(control + 16, matrix.data(), sizeof(matrix));
+}
+
 } // Anonymous namespace
 
 bool Enabled() {
@@ -277,6 +413,7 @@ Frame Tick(Core::System& system) {
     if (process->GetProcessId() != state.process_id) {
         state.process_id = process->GetProcessId();
         state.main_base = FindMainBase(*process);
+        state.puppet_installed = false;
         LOG_INFO(Core, "Nx2 multiplayer: main module at {:#x}", state.main_base);
         if (!state.socket && !state.ghost_mode) {
             SetUpNetwork(state);
@@ -289,6 +426,14 @@ Frame Tick(Core::System& system) {
     }
     Exchange(state, frame.local);
     frame.remote = state.remote;
+    if (Env("EDEN_NX2_MP_PUPPET")) {
+        if (!state.puppet_installed) {
+            state.puppet_installed = InstallPuppetDetour(*process, state.main_base);
+        }
+        if (state.puppet_installed) {
+            WritePuppet(*process, state.main_base, frame.remote);
+        }
+    }
     frame.valid = link && ReadCamera(memory, state.main_base, *link, frame);
     frame.status = fmt::format("multiplayer: {} | Link {} | camera {} | remote {}", state.network_status,
                                link ? "ok" : "not found", frame.valid ? "ok" : "not found",
