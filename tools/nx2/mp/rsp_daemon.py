@@ -77,9 +77,15 @@ class Stub:
 
 
 stub = Stub()
-# The process starts suspended for the debugger; let it run.
-stub.send("?")
-first = stub.stop_reply(10)
+# The process starts suspended for the debugger; let it run. Connected before the game's process
+# exists, the stub reports a thread with all registers zero: wait for a real one, then continue.
+first = None
+for _ in range(120):
+    stub.send("?")
+    first = stub.stop_reply(10)
+    if first and "20:0000000000000000" not in first:
+        break
+    time.sleep(1)
 stub.send("c")
 print("connected; initial status", first, flush=True)
 

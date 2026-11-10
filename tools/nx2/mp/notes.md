@@ -40,3 +40,18 @@
   reach Link's actor (0x2149d211c0, walks with him); 29 others land on another actor-like object
   that did not move. Survivors in chains_link_2boots.json, e.g.
   [[[main + 0x4E98438] + 0xB8] + 0x40] = Link actor, X/Y/Z at actor + 0x31C.
+
+# Puppet and actor creation (2026-11-10)
+- Puppet works (commit a35bbab636): detours at main+0x136AA0 (component matrix getter) and the
+  copy sites main+0x137858 / +0x1382CC; control block in the .text padding at main+0x3C46440.
+  Velocity at actor+0x388 does not drive NPC animation (their AI does).
+- The engine is the Tears of the Kingdom one: Phive physics, AINB nodes (Execute*/Query*),
+  ActionSeq animation; Link's actor is "Player_Child" (actor+0x260 -> name).
+- Actor creation: the AINB node "ExecuteGenericRequestCreateActor" (getName at main+0x26E67E0,
+  vtable in .data.rel.ro) executes at main+0x26E62B0 and calls
+    main+0x372A70(ActorMgr* [[main+0x4C7F3E0]], &name, &param, handle = node+0x20, 1, 0, 0, 0,
+                  stack: u8 0, u64 0, u64 0)
+  param (0xA0 bytes): +0x00 position X/Y/Z, +0x0C rotation 3x3, +0x30 12 bytes from
+  [main+0x4C7E0B8] (scale?), +0x40 u64 from the node, +0x98 u8 3; the rest zero.
+- Next: a cave that calls it once on a request from the control block, hooked into a function
+  the game runs every frame on a game thread; first actor to try: Dark Link (name from romfs).
