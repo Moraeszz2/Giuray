@@ -2,11 +2,13 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include <algorithm>
+#include <unordered_map>
 #include <atomic>
 #include <bit>
 #include <charconv>
 #include <chrono>
 #include <cmath>
+#include <limits>
 #include <cstdlib>
 #include <cstring>
 #include <filesystem>
@@ -80,6 +82,17 @@ struct ToolState {
     u64 samples{};
     u64 gpu_reads{};
     std::atomic<bool> stopping{};
+
+    /// scan_memory: the f32 values a scan still considers. Until the first filter they are whole
+    /// pages (page_addresses, page_bytes); from then on single addresses and their last values.
+    struct FloatScan {
+        std::vector<u64> page_addresses;
+        std::vector<u8> page_bytes;
+        std::vector<u64> addresses;
+        std::vector<float> values;
+        bool paged = true;
+    };
+    std::unique_ptr<FloatScan> scan;
 };
 
 namespace {
@@ -570,6 +583,287 @@ json SearchMemory(ToolState& state, const json& params) {
     return result;
 }
 
+/// Writes guest memory: `hex` bytes, or `f32` values in a row. With `frames`, the write is
+/// repeated at each present for that many frames (a value the game rewrites from another copy
+/// every frame snaps back at once; the copy the game reads from keeps it).
+json WriteMemory(ToolState& state, const json& params, const ClientGone& client_gone) {
+    const u64 address = AddressParam(params, "address");
+    std::vector<u8> bytes;
+    if (params.contains("f32")) {
+        for (const json& value : params.at("f32")) {
+            const u32 word = std::bit_cast<u32>(value.get<float>());
+            for (int shift = 0; shift < 32; shift += 8) {
+                bytes.push_back(static_cast<u8>(word >> shift));
+            }
+        }
+    } else {
+        bytes = ParseHexBytes(params.at("hex").get<std::string>());
+    }
+    if (bytes.empty() || bytes.size() > MAX_READ) {
+        throw std::runtime_error{fmt::format("write 1 to {} bytes", MAX_READ)};
+    }
+    Memory::Memory& memory = Application(state).GetMemory();
+    if (!memory.IsValidVirtualAddressRange(address, bytes.size())) {
+        throw std::runtime_error{fmt::format("guest range {:#x} + {} is not mapped", address,
+                                             bytes.size())};
+    }
+    const u64 frames = Param<u64>(params, "frames", 0, 0, MAX_INPUT_FRAMES);
+    memory.WriteBlock(address, bytes.data(), bytes.size());
+    const u64 start = g_nx2_present_count.load(std::memory_order_relaxed);
+    u64 last = start;
+    while (last < start + frames) {
+        if (state.stopping.load(std::memory_order_relaxed) || client_gone()) {
+            break;
+        }
+        const u64 now = g_nx2_present_count.load(std::memory_order_relaxed);
+        if (now != last) {
+            memory.WriteBlock(address, bytes.data(), bytes.size());
+            last = now;
+        }
+        std::this_thread::sleep_for(1ms);
+    }
+    LOG_INFO(Debug, "nx2 debug server: wrote {} bytes at {:#x} for {} frames", bytes.size(),
+             address, last - start);
+    return {{"address", HexAddress(address)}, {"size", bytes.size()}, {"frames", last - start}};
+}
+
+/// Finds pointer chains from fixed ranges (`static`: [{start, end}, ...], such as the main
+/// module's writable data) to `target`: [[start + a] + b] + ... = target, each offset at most
+/// `max_offset`, at most `max_depth` pointers. Indexes every 8-byte word of the heap and the fixed
+/// ranges that points into the heap once, then walks back from the target level by level.
+json PointerScan(ToolState& state, const json& params) {
+    const u64 target = AddressParam(params, "target");
+    const u64 max_offset = Param<u64>(params, "max_offset", 0x400, 0, 0x10000);
+    const int max_depth = Param<int>(params, "max_depth", 4, 1, 7);
+    const size_t max_nodes = Param<size_t>(params, "max_nodes", 200000, 1, 5000000);
+    const size_t max_chains = Param<size_t>(params, "max_chains", 200, 1, 10000);
+    Kernel::KProcess& process = Application(state);
+    Memory::Memory& memory = process.GetMemory();
+    const u64 heap_start = GetInteger(process.GetPageTable().GetHeapRegionStart());
+    const u64 heap_end = heap_start + process.GetPageTable().GetHeapRegionSize();
+    std::vector<std::pair<u64, u64>> statics;
+    for (const json& range : params.value("static", json::array())) {
+        statics.emplace_back(AddressParam(range, "start"), AddressParam(range, "end"));
+    }
+    const auto is_static = [&](u64 address) {
+        return std::ranges::any_of(statics, [address](const auto& range) {
+            return address >= range.first && address < range.second;
+        });
+    };
+    const auto begin = std::chrono::steady_clock::now();
+    // (value, address of the word holding it), sorted by value.
+    std::vector<std::pair<u64, u64>> index;
+    // Counted first so the index is allocated once (it can take a few GiB).
+    const auto add_range = [&](u64 start, u64 end, bool store) {
+        size_t count = 0;
+        for (u64 page = start & ~Memory::YUZU_PAGEMASK; page < end; page += Memory::YUZU_PAGESIZE) {
+            const u8* const source = GuestByte(memory, page);
+            if (source == nullptr) {
+                continue;
+            }
+            for (u64 offset = 0; offset < Memory::YUZU_PAGESIZE; offset += 8) {
+                u64 value;
+                std::memcpy(&value, source + offset, sizeof(value));
+                if (value >= heap_start && value < heap_end) {
+                    ++count;
+                    if (store) {
+                        index.emplace_back(value, page + offset);
+                    }
+                }
+            }
+        }
+        return count;
+    };
+    size_t total = add_range(heap_start, heap_end, false);
+    for (const auto& [start, end] : statics) {
+        total += add_range(start, end, false);
+    }
+    // Words can change between the passes: leave some room.
+    index.reserve(total + total / 16 + 1024);
+    add_range(heap_start, heap_end, true);
+    for (const auto& [start, end] : statics) {
+        add_range(start, end, true);
+    }
+    std::ranges::sort(index);
+    const double index_s =
+        std::chrono::duration<double>(std::chrono::steady_clock::now() - begin).count();
+
+    // For each node (an address on a path), the node it leads to and the offset added on the way.
+    std::unordered_map<u64, std::pair<u64, u64>> next;
+    std::vector<u64> level{target};
+    next.emplace(target, std::pair<u64, u64>{0, 0});
+    json chains = json::array();
+    size_t visited = 1;
+    bool capped = false;
+    for (int depth = 1; depth <= max_depth && !level.empty() && chains.size() < max_chains; ++depth) {
+        std::vector<u64> upper;
+        for (const u64 node : level) {
+            const u64 low = node >= max_offset ? node - max_offset : 0;
+            auto it = std::ranges::lower_bound(index, std::pair<u64, u64>{low, 0});
+            for (; it != index.end() && it->first <= node; ++it) {
+                const u64 holder = it->second;
+                if (next.contains(holder)) {
+                    continue;
+                }
+                next.emplace(holder, std::pair<u64, u64>{node, node - it->first});
+                ++visited;
+                if (is_static(holder)) {
+                    json offsets = json::array();
+                    for (u64 at = holder; at != target;) {
+                        const auto& [to, offset] = next.at(at);
+                        offsets.push_back(HexAddress(offset));
+                        at = to;
+                    }
+                    chains.push_back({{"base", HexAddress(holder)}, {"offsets", std::move(offsets)}});
+                    if (chains.size() >= max_chains) {
+                        break;
+                    }
+                } else if (upper.size() < max_nodes) {
+                    upper.push_back(holder);
+                } else {
+                    capped = true;
+                }
+            }
+            if (chains.size() >= max_chains) {
+                break;
+            }
+        }
+        level = std::move(upper);
+    }
+    return {{"chains", std::move(chains)},
+            {"index_entries", index.size()},
+            {"index_s", index_s},
+            {"visited", visited},
+            {"capped", capped},
+            {"elapsed_s",
+             std::chrono::duration<double>(std::chrono::steady_clock::now() - begin).count()}};
+}
+
+/// Unknown-value scan over the guest's f32 values (like a memory scanner's "unknown initial
+/// value"): "start" snapshots the region, each "filter" keeps the values that changed as asked
+/// since the last step, "clear" drops the scan. Used to find game state such as the player's
+/// position by moving between filters.
+json ScanMemory(ToolState& state, const json& params) {
+    const std::string op = params.at("op").get<std::string>();
+    Kernel::KProcess& process = Application(state);
+    Memory::Memory& memory = process.GetMemory();
+    if (op == "clear") {
+        state.scan.reset();
+        return {{"cleared", true}};
+    }
+    if (op == "start") {
+        const std::string regions = params.value("regions", std::string{"heap"});
+        u64 start = 0;
+        u64 size = 0;
+        if (regions == "heap") {
+            start = GetInteger(process.GetPageTable().GetHeapRegionStart());
+            size = process.GetPageTable().GetHeapRegionSize();
+        } else if (regions == "range") {
+            start = AddressParam(params, "start");
+            size = AddressParam(params, "end") - start;
+        } else {
+            throw std::runtime_error{fmt::format("regions \"{}\": want heap or range", regions)};
+        }
+        auto scan = std::make_unique<ToolState::FloatScan>();
+        for (u64 address = start & ~Memory::YUZU_PAGEMASK; address < start + size;
+             address += Memory::YUZU_PAGESIZE) {
+            const u8* const source = GuestByte(memory, address);
+            if (source == nullptr) {
+                continue;
+            }
+            scan->page_addresses.push_back(address);
+            scan->page_bytes.insert(scan->page_bytes.end(), source, source + Memory::YUZU_PAGESIZE);
+        }
+        const u64 bytes = scan->page_bytes.size();
+        state.scan = std::move(scan);
+        return {{"pages", state.scan->page_addresses.size()}, {"bytes", bytes},
+                {"start", HexAddress(start)}, {"end", HexAddress(start + size)}};
+    }
+    if (op != "filter") {
+        throw std::runtime_error{fmt::format("op \"{}\": want start, filter or clear", op)};
+    }
+    if (!state.scan) {
+        throw std::runtime_error{"no scan: call op start first"};
+    }
+    const std::string mode = params.at("mode").get<std::string>();
+    const float tolerance = params.value("tolerance", 0.0f);
+    const float min_change = params.value("min_change", 0.0f);
+    const float low = params.value("min", -std::numeric_limits<float>::infinity());
+    const float high = params.value("max", std::numeric_limits<float>::infinity());
+    const auto keep = [&](float before, float now) {
+        if (!std::isfinite(now) || now < low || now > high) {
+            return false;
+        }
+        const float delta = now - before;
+        if (mode == "changed") {
+            return std::fabs(delta) > (std::max)(tolerance, min_change);
+        }
+        if (mode == "unchanged") {
+            return std::fabs(delta) <= tolerance;
+        }
+        if (mode == "increased") {
+            return delta > min_change;
+        }
+        if (mode == "decreased") {
+            return delta < -min_change;
+        }
+        if (mode == "any") {
+            return true;
+        }
+        throw std::runtime_error{fmt::format(
+            "mode \"{}\": want changed, unchanged, increased, decreased or any", mode)};
+    };
+    ToolState::FloatScan& scan = *state.scan;
+    std::vector<u64> addresses;
+    std::vector<float> values;
+    const auto read_float = [&](u64 address, float& out) {
+        const u8* const source = GuestByte(memory, address);
+        if (source == nullptr) {
+            return false;
+        }
+        std::memcpy(&out, source, sizeof(out));
+        return true;
+    };
+    if (scan.paged) {
+        for (size_t page = 0; page < scan.page_addresses.size(); ++page) {
+            const u8* const current = GuestByte(memory, scan.page_addresses[page]);
+            if (current == nullptr) {
+                continue;
+            }
+            const u8* const before = scan.page_bytes.data() + page * Memory::YUZU_PAGESIZE;
+            for (u64 offset = 0; offset < Memory::YUZU_PAGESIZE; offset += 4) {
+                float old_value;
+                float new_value;
+                std::memcpy(&old_value, before + offset, sizeof(old_value));
+                std::memcpy(&new_value, current + offset, sizeof(new_value));
+                if (std::isfinite(old_value) && keep(old_value, new_value)) {
+                    addresses.push_back(scan.page_addresses[page] + offset);
+                    values.push_back(new_value);
+                }
+            }
+        }
+        scan.page_addresses = {};
+        scan.page_bytes = {};
+        scan.paged = false;
+    } else {
+        for (size_t index = 0; index < scan.addresses.size(); ++index) {
+            float now;
+            if (read_float(scan.addresses[index], now) && keep(scan.values[index], now)) {
+                addresses.push_back(scan.addresses[index]);
+                values.push_back(now);
+            }
+        }
+    }
+    scan.addresses = std::move(addresses);
+    scan.values = std::move(values);
+    const size_t show = Param<size_t>(params, "show", 20, 0, 1000);
+    json shown = json::array();
+    for (size_t index = 0; index < (std::min)(show, scan.addresses.size()); ++index) {
+        shown.push_back({{"address", HexAddress(scan.addresses[index])}, {"value", scan.values[index]}});
+    }
+    return {{"count", scan.addresses.size()}, {"candidates", std::move(shown)}};
+}
+
 json ReadGpuMemory(ToolState& state, const json& params) {
     if (!IsVulkan()) {
         throw std::runtime_error{"GPU memory reads need the Vulkan renderer"};
@@ -704,6 +998,9 @@ Handlers MakeHandlers(const std::shared_ptr<ToolState>& state) {
         {"host_timing", handler(HostTiming)},
         {"read_memory", handler(ReadMemory)},
         {"search_memory", handler(SearchMemory)},
+        {"scan_memory", handler(ScanMemory)},
+        {"pointer_scan", handler(PointerScan)},
+        {"write_memory", waiting(WriteMemory)},
         {"read_gpu_memory", handler(ReadGpuMemory)},
         {"input", waiting(Input)},
         {"input_sequence", waiting(InputSequence)},

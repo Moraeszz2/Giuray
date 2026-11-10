@@ -1,0 +1,893 @@
+{
+ "target": "Link actor",
+ "survived_boots": 2,
+ "chains": [
+  {
+   "main_offset": "0x4e98438",
+   "offsets": [
+    "0xb8",
+    "0x40",
+    "0x0"
+   ]
+  },
+  {
+   "main_offset": "0x4e6ba20",
+   "offsets": [
+    "0x78",
+    "0x40",
+    "0x0"
+   ]
+  },
+  {
+   "main_offset": "0x4e44480",
+   "offsets": [
+    "0x78",
+    "0x40",
+    "0x0"
+   ]
+  },
+  {
+   "main_offset": "0x4e43b68",
+   "offsets": [
+    "0x38",
+    "0x40",
+    "0x0"
+   ]
+  },
+  {
+   "main_offset": "0x4e43b60",
+   "offsets": [
+    "0x380",
+    "0x40",
+    "0x0"
+   ]
+  },
+  {
+   "main_offset": "0x4e21108",
+   "offsets": [
+    "0x340",
+    "0x40",
+    "0x0"
+   ]
+  },
+  {
+   "main_offset": "0x4e210e0",
+   "offsets": [
+    "0xb8",
+    "0x40",
+    "0x0"
+   ]
+  },
+  {
+   "main_offset": "0x4e353b0",
+   "offsets": [
+    "0x78",
+    "0x40",
+    "0x0"
+   ]
+  },
+  {
+   "main_offset": "0x4e97618",
+   "offsets": [
+    "0x350",
+    "0x18",
+    "0x0"
+   ]
+  },
+  {
+   "main_offset": "0x4e97610",
+   "offsets": [
+    "0x330",
+    "0x18",
+    "0x0"
+   ]
+  },
+  {
+   "main_offset": "0x4e97630",
+   "offsets": [
+    "0x2b0",
+    "0x18",
+    "0x0"
+   ]
+  },
+  {
+   "main_offset": "0x4e24b28",
+   "offsets": [
+    "0x10",
+    "0x18",
+    "0x0"
+   ]
+  },
+  {
+   "main_offset": "0x4e22538",
+   "offsets": [
+    "0x1f0",
+    "0xc0",
+    "0x0"
+   ]
+  },
+  {
+   "main_offset": "0x4e43d28",
+   "offsets": [
+    "0x1b0",
+    "0xc0",
+    "0x0"
+   ]
+  },
+  {
+   "main_offset": "0x4e91898",
+   "offsets": [
+    "0x88",
+    "0xc0",
+    "0x0"
+   ]
+  },
+  {
+   "main_offset": "0x4e918a0",
+   "offsets": [
+    "0x88",
+    "0xc0",
+    "0x0"
+   ]
+  },
+  {
+   "main_offset": "0x4e43d20",
+   "offsets": [
+    "0x78",
+    "0xc0",
+    "0x0"
+   ]
+  },
+  {
+   "main_offset": "0x4e371e8",
+   "offsets": [
+    "0x38",
+    "0xc0",
+    "0x0"
+   ]
+  },
+  {
+   "main_offset": "0x4e947c8",
+   "offsets": [
+    "0x20",
+    "0x18",
+    "0x0"
+   ]
+  },
+  {
+   "main_offset": "0x4e947d0",
+   "offsets": [
+    "0x20",
+    "0x18",
+    "0x0"
+   ]
+  },
+  {
+   "main_offset": "0x4e935b8",
+   "offsets": [
+    "0x20",
+    "0x18",
+    "0x0"
+   ]
+  },
+  {
+   "main_offset": "0x4e939d8",
+   "offsets": [
+    "0x20",
+    "0x18",
+    "0x0"
+   ]
+  },
+  {
+   "main_offset": "0x4e94048",
+   "offsets": [
+    "0x20",
+    "0x18",
+    "0x0"
+   ]
+  },
+  {
+   "main_offset": "0x4e93a28",
+   "offsets": [
+    "0x20",
+    "0x18",
+    "0x0"
+   ]
+  },
+  {
+   "main_offset": "0x4e93b18",
+   "offsets": [
+    "0x20",
+    "0x18",
+    "0x0"
+   ]
+  },
+  {
+   "main_offset": "0x4e93c08",
+   "offsets": [
+    "0x20",
+    "0x18",
+    "0x0"
+   ]
+  },
+  {
+   "main_offset": "0x4e93c10",
+   "offsets": [
+    "0x20",
+    "0x18",
+    "0x0"
+   ]
+  },
+  {
+   "main_offset": "0x4e93bb8",
+   "offsets": [
+    "0x20",
+    "0x18",
+    "0x0"
+   ]
+  },
+  {
+   "main_offset": "0x4e97580",
+   "offsets": [
+    "0x2b8",
+    "0x10",
+    "0x0"
+   ]
+  },
+  {
+   "main_offset": "0x4e94de8",
+   "offsets": [
+    "0x230",
+    "0x10",
+    "0x0"
+   ]
+  },
+  {
+   "main_offset": "0x4e95ec8",
+   "offsets": [
+    "0x1f0",
+    "0x10",
+    "0x0"
+   ]
+  },
+  {
+   "main_offset": "0x4e97ff8",
+   "offsets": [
+    "0x350",
+    "0xa8",
+    "0x40",
+    "0x0"
+   ]
+  },
+  {
+   "main_offset": "0x4e98280",
+   "offsets": [
+    "0x310",
+    "0xa8",
+    "0x40",
+    "0x0"
+   ]
+  },
+  {
+   "main_offset": "0x4e6b9e8",
+   "offsets": [
+    "0x10",
+    "0xa8",
+    "0x40",
+    "0x0"
+   ]
+  },
+  {
+   "main_offset": "0x4e84c18",
+   "offsets": [
+    "0x328",
+    "0x104",
+    "0x40",
+    "0x0"
+   ]
+  },
+  {
+   "main_offset": "0x4e84c20",
+   "offsets": [
+    "0x328",
+    "0x104",
+    "0x40",
+    "0x0"
+   ]
+  },
+  {
+   "main_offset": "0x4e21430",
+   "offsets": [
+    "0x100",
+    "0x68",
+    "0x40",
+    "0x0"
+   ]
+  },
+  {
+   "main_offset": "0x4e21428",
+   "offsets": [
+    "0xd0",
+    "0x68",
+    "0x40",
+    "0x0"
+   ]
+  },
+  {
+   "main_offset": "0x4e77ed8",
+   "offsets": [
+    "0x90",
+    "0x68",
+    "0x40",
+    "0x0"
+   ]
+  },
+  {
+   "main_offset": "0x4e77ed0",
+   "offsets": [
+    "0x18",
+    "0x68",
+    "0x40",
+    "0x0"
+   ]
+  },
+  {
+   "main_offset": "0x4e353a8",
+   "offsets": [
+    "0x10",
+    "0xa8",
+    "0x40",
+    "0x0"
+   ]
+  },
+  {
+   "main_offset": "0x4e95ec0",
+   "offsets": [
+    "0x1e0",
+    "0x78",
+    "0x40",
+    "0x0"
+   ]
+  },
+  {
+   "main_offset": "0x4e95f28",
+   "offsets": [
+    "0x1a0",
+    "0x78",
+    "0x40",
+    "0x0"
+   ]
+  },
+  {
+   "main_offset": "0x4e95f20",
+   "offsets": [
+    "0x160",
+    "0x78",
+    "0x40",
+    "0x0"
+   ]
+  },
+  {
+   "main_offset": "0x4e95ed8",
+   "offsets": [
+    "0x120",
+    "0x78",
+    "0x40",
+    "0x0"
+   ]
+  },
+  {
+   "main_offset": "0x4e95ed0",
+   "offsets": [
+    "0xf0",
+    "0x78",
+    "0x40",
+    "0x0"
+   ]
+  },
+  {
+   "main_offset": "0x4e95fe0",
+   "offsets": [
+    "0xb0",
+    "0x78",
+    "0x40",
+    "0x0"
+   ]
+  },
+  {
+   "main_offset": "0x4e90d90",
+   "offsets": [
+    "0x330",
+    "0x168",
+    "0x400",
+    "0x0"
+   ]
+  },
+  {
+   "main_offset": "0x4e7fc58",
+   "offsets": [
+    "0x120",
+    "0x8",
+    "0xf0",
+    "0x0"
+   ]
+  },
+  {
+   "main_offset": "0x4e7fc50",
+   "offsets": [
+    "0x70",
+    "0x8",
+    "0xf0",
+    "0x0"
+   ]
+  },
+  {
+   "main_offset": "0x4e78e28",
+   "offsets": [
+    "0x80",
+    "0x3ec",
+    "0x18",
+    "0x0"
+   ]
+  },
+  {
+   "main_offset": "0x4e96518",
+   "offsets": [
+    "0x298",
+    "0x350",
+    "0x18",
+    "0x0"
+   ]
+  },
+  {
+   "main_offset": "0x4e96888",
+   "offsets": [
+    "0x258",
+    "0x350",
+    "0x18",
+    "0x0"
+   ]
+  },
+  {
+   "main_offset": "0x4e96880",
+   "offsets": [
+    "0x150",
+    "0x350",
+    "0x18",
+    "0x0"
+   ]
+  },
+  {
+   "main_offset": "0x4e96980",
+   "offsets": [
+    "0x110",
+    "0x350",
+    "0x18",
+    "0x0"
+   ]
+  },
+  {
+   "main_offset": "0x4e96978",
+   "offsets": [
+    "0x70",
+    "0x350",
+    "0x18",
+    "0x0"
+   ]
+  },
+  {
+   "main_offset": "0x4e97648",
+   "offsets": [
+    "0x30",
+    "0x350",
+    "0x18",
+    "0x0"
+   ]
+  },
+  {
+   "main_offset": "0x4e24b10",
+   "offsets": [
+    "0x8",
+    "0x110",
+    "0x18",
+    "0x0"
+   ]
+  },
+  {
+   "main_offset": "0x4e30418",
+   "offsets": [
+    "0x8",
+    "0x110",
+    "0x18",
+    "0x0"
+   ]
+  },
+  {
+   "main_offset": "0x4e6ca08",
+   "offsets": [
+    "0x8",
+    "0x110",
+    "0x18",
+    "0x0"
+   ]
+  },
+  {
+   "main_offset": "0x4e95f70",
+   "offsets": [
+    "0x138",
+    "0x110",
+    "0x18",
+    "0x0"
+   ]
+  },
+  {
+   "main_offset": "0x4e95f68",
+   "offsets": [
+    "0x8",
+    "0x110",
+    "0x18",
+    "0x0"
+   ]
+  },
+  {
+   "main_offset": "0x4e78e10",
+   "offsets": [
+    "0x8",
+    "0x110",
+    "0x18",
+    "0x0"
+   ]
+  },
+  {
+   "main_offset": "0x4e1fcc0",
+   "offsets": [
+    "0xe0",
+    "0x110",
+    "0x18",
+    "0x0"
+   ]
+  },
+  {
+   "main_offset": "0x4e1fcb8",
+   "offsets": [
+    "0x8",
+    "0x110",
+    "0x18",
+    "0x0"
+   ]
+  },
+  {
+   "main_offset": "0x4e91930",
+   "offsets": [
+    "0x160",
+    "0x110",
+    "0x18",
+    "0x0"
+   ]
+  },
+  {
+   "main_offset": "0x4e91928",
+   "offsets": [
+    "0x8",
+    "0x110",
+    "0x18",
+    "0x0"
+   ]
+  },
+  {
+   "main_offset": "0x4e7eaa8",
+   "offsets": [
+    "0x1e0",
+    "0x31c",
+    "0xc0",
+    "0x0"
+   ]
+  },
+  {
+   "main_offset": "0x4e22540",
+   "offsets": [
+    "0x1a0",
+    "0x31c",
+    "0xc0",
+    "0x0"
+   ]
+  },
+  {
+   "main_offset": "0x4e93938",
+   "offsets": [
+    "0x40",
+    "0x20",
+    "0x18",
+    "0x0"
+   ]
+  },
+  {
+   "main_offset": "0x4e93940",
+   "offsets": [
+    "0x40",
+    "0x20",
+    "0x18",
+    "0x0"
+   ]
+  },
+  {
+   "main_offset": "0x4e939e0",
+   "offsets": [
+    "0x8",
+    "0x20",
+    "0x18",
+    "0x0"
+   ]
+  },
+  {
+   "main_offset": "0x4e93a78",
+   "offsets": [
+    "0x190",
+    "0x20",
+    "0x18",
+    "0x0"
+   ]
+  },
+  {
+   "main_offset": "0x4e93de8",
+   "offsets": [
+    "0xb0",
+    "0x20",
+    "0x18",
+    "0x0"
+   ]
+  },
+  {
+   "main_offset": "0x4e93df0",
+   "offsets": [
+    "0xb0",
+    "0x20",
+    "0x18",
+    "0x0"
+   ]
+  },
+  {
+   "main_offset": "0x4e93e38",
+   "offsets": [
+    "0x78",
+    "0x20",
+    "0x18",
+    "0x0"
+   ]
+  },
+  {
+   "main_offset": "0x4e93e40",
+   "offsets": [
+    "0x78",
+    "0x20",
+    "0x18",
+    "0x0"
+   ]
+  },
+  {
+   "main_offset": "0x4e93eb8",
+   "offsets": [
+    "0x40",
+    "0x20",
+    "0x18",
+    "0x0"
+   ]
+  },
+  {
+   "main_offset": "0x4e93ec0",
+   "offsets": [
+    "0x40",
+    "0x20",
+    "0x18",
+    "0x0"
+   ]
+  },
+  {
+   "main_offset": "0x4e94050",
+   "offsets": [
+    "0x8",
+    "0x20",
+    "0x18",
+    "0x0"
+   ]
+  },
+  {
+   "main_offset": "0x4e94b48",
+   "offsets": [
+    "0x368",
+    "0x360",
+    "0x10",
+    "0x0"
+   ]
+  },
+  {
+   "main_offset": "0x4e950a8",
+   "offsets": [
+    "0x328",
+    "0x360",
+    "0x10",
+    "0x0"
+   ]
+  },
+  {
+   "main_offset": "0x4e974c8",
+   "offsets": [
+    "0x300",
+    "0x2b8",
+    "0x10",
+    "0x0"
+   ]
+  },
+  {
+   "main_offset": "0x4e97d70",
+   "offsets": [
+    "0x2c0",
+    "0x2b8",
+    "0x10",
+    "0x0"
+   ]
+  },
+  {
+   "main_offset": "0x4e92fe8",
+   "offsets": [
+    "0x240",
+    "0x2b8",
+    "0x10",
+    "0x0"
+   ]
+  },
+  {
+   "main_offset": "0x4e92ff0",
+   "offsets": [
+    "0x240",
+    "0x2b8",
+    "0x10",
+    "0x0"
+   ]
+  },
+  {
+   "main_offset": "0x4e97d58",
+   "offsets": [
+    "0x140",
+    "0x2b8",
+    "0x10",
+    "0x0"
+   ]
+  },
+  {
+   "main_offset": "0x4e97d88",
+   "offsets": [
+    "0x100",
+    "0x2b8",
+    "0x10",
+    "0x0"
+   ]
+  },
+  {
+   "main_offset": "0x4e97d80",
+   "offsets": [
+    "0xd0",
+    "0x2b8",
+    "0x10",
+    "0x0"
+   ]
+  },
+  {
+   "main_offset": "0x4e98000",
+   "offsets": [
+    "0x90",
+    "0x2b8",
+    "0x10",
+    "0x0"
+   ]
+  },
+  {
+   "main_offset": "0x4e953e0",
+   "offsets": [
+    "0x38",
+    "0x2b8",
+    "0x10",
+    "0x0"
+   ]
+  },
+  {
+   "main_offset": "0x4e94868",
+   "offsets": [
+    "0x100",
+    "0x220",
+    "0x10",
+    "0x0"
+   ]
+  },
+  {
+   "main_offset": "0x4e94b50",
+   "offsets": [
+    "0xc0",
+    "0x220",
+    "0x10",
+    "0x0"
+   ]
+  },
+  {
+   "main_offset": "0x4e95608",
+   "offsets": [
+    "0x400",
+    "0x208",
+    "0x1b8",
+    "0x0"
+   ]
+  },
+  {
+   "main_offset": "0x4e95610",
+   "offsets": [
+    "0x400",
+    "0x208",
+    "0x1b8",
+    "0x0"
+   ]
+  },
+  {
+   "main_offset": "0x4e93d48",
+   "offsets": [
+    "0x390",
+    "0x208",
+    "0x1b8",
+    "0x0"
+   ]
+  },
+  {
+   "main_offset": "0x4e93cf8",
+   "offsets": [
+    "0x358",
+    "0x208",
+    "0x1b8",
+    "0x0"
+   ]
+  },
+  {
+   "main_offset": "0x4e93d00",
+   "offsets": [
+    "0x358",
+    "0x208",
+    "0x1b8",
+    "0x0"
+   ]
+  },
+  {
+   "main_offset": "0x4e94098",
+   "offsets": [
+    "0x2e8",
+    "0x208",
+    "0x1b8",
+    "0x0"
+   ]
+  },
+  {
+   "main_offset": "0x4e94408",
+   "offsets": [
+    "0x2b0",
+    "0x208",
+    "0x1b8",
+    "0x0"
+   ]
+  },
+  {
+   "main_offset": "0x4e7ee50",
+   "offsets": [
+    "0x150",
+    "0x8",
+    "0x2b8",
+    "0x0"
+   ]
+  },
+  {
+   "main_offset": "0x4e20e20",
+   "offsets": [
+    "0x110",
+    "0x8",
+    "0x2b8",
+    "0x0"
+   ]
+  }
+ ]
+}

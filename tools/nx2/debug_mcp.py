@@ -189,6 +189,66 @@ TOOLS = [
         },
     },
     {
+        "name": "pointer_scan",
+        "description": "Finds pointer chains [[base + a] + b] ... = target from fixed ranges "
+                       "('static': [{start, end}], e.g. the main module's data) to a heap address. "
+                       "Indexes the heap's pointers once (a few GiB of host memory, tens of seconds).",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "target": {"type": ["string", "integer"]},
+                "static": {"type": "array", "items": {"type": "object"}},
+                "max_offset": {"type": "integer"},
+                "max_depth": {"type": "integer", "minimum": 1, "maximum": 7},
+                "max_nodes": {"type": "integer"},
+                "max_chains": {"type": "integer"},
+                "timeout_s": {"type": "integer", "minimum": 1, "maximum": 900},
+            },
+            "required": ["target"],
+        },
+    },
+    {
+        "name": "write_memory",
+        "description": "Writes guest memory at address: 'hex' bytes or 'f32' values in a row. "
+                       "With 'frames', repeats the write at each present for that many frames.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "address": {"type": ["string", "integer"]},
+                "hex": {"type": "string"},
+                "f32": {"type": "array", "items": {"type": "number"}},
+                "frames": {"type": "integer", "minimum": 0, "maximum": 36000},
+            },
+            "required": ["address"],
+        },
+    },
+    {
+        "name": "scan_memory",
+        "description": "Unknown-value scan over the guest's f32 values. op 'start' snapshots the "
+                       "heap (or regions 'range' with start and end); each op 'filter' keeps the "
+                       "values that, since the last step, are 'changed', 'unchanged' (within "
+                       "tolerance), 'increased' or 'decreased' (by more than min_change) or 'any', "
+                       "and lie within min..max; it returns the count and the first 'show' "
+                       "candidates. op 'clear' drops the scan.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "op": {"type": "string", "enum": ["start", "filter", "clear"]},
+                "mode": {"type": "string",
+                         "enum": ["changed", "unchanged", "increased", "decreased", "any"]},
+                "regions": {"type": "string", "enum": ["heap", "range"]},
+                "start": {"type": ["string", "integer"]},
+                "end": {"type": ["string", "integer"]},
+                "tolerance": {"type": "number"},
+                "min_change": {"type": "number"},
+                "min": {"type": "number"},
+                "max": {"type": "number"},
+                "show": {"type": "integer", "minimum": 0, "maximum": 1000},
+            },
+            "required": ["op"],
+        },
+    },
+    {
         "name": "read_gpu_memory",
         "description": "Reads up to 64 KiB of GPU virtual memory (e.g. query report and semaphore "
                        "buffers the game reads back) at the next frame end, as the GPU sees it, "

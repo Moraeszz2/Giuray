@@ -49,6 +49,8 @@ add_library(core STATIC
     debugger/nx2_debug_server.cpp
     debugger/nx2_debug_server.h
     debugger/nx2_debug_tools.cpp
+    nx2_multiplayer.cpp
+    nx2_multiplayer.h
     debugger/nx2_debug_tools.h
     device_memory.cpp
     device_memory.h

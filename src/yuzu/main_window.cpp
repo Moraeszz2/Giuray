@@ -15,6 +15,7 @@
 #include "common/settings_enums.h"
 #include "frontend_common/settings_generator.h"
 #include "render/performance_overlay.h"
+#include "render/mp_overlay.h"
 #ifdef HAS_RESHADE
 #include "configuration/configure_post_processing.h"
 #include "video_core/post_processing/fx_preset.h"
@@ -2388,6 +2389,11 @@ bool MainWindow::OnShutdownBegin() {
         perf_overlay->deleteLater();
         perf_overlay = nullptr;
     }
+    if (mp_overlay) {
+        mp_overlay->hide();
+        mp_overlay->deleteLater();
+        mp_overlay = nullptr;
+    }
 
     QtCommon::system->SetShuttingDown(true);
     status_bar_update_timer.stop();
@@ -3434,6 +3440,10 @@ void MainWindow::OnLoadComplete() {
 
     connect(perf_overlay, &PerformanceOverlay::closed, perf_overlay,
             [this]() { ui->action_Show_Performance_Overlay->setChecked(false); });
+
+    if (Core::Nx2Multiplayer::Enabled() && !mp_overlay) {
+        mp_overlay = new MultiplayerOverlay(render_window, this);
+    }
 }
 
 void MainWindow::OnExecuteProgram(std::size_t program_index) {
