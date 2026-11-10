@@ -66,3 +66,8 @@
   (ExecuteASOneShot..., like the actor create call) and drive Dark Link's AS from Lichii;
   (2) copy Link's skeleton pose (bone matrices) onto Dark Link each frame, which needs a hook
   between the animation update and the draw.
+- AS play node: ExecuteASPlay (execute main+0x2001D0) builds {AS component ([[node+8]+8]+0x1F0),
+  AS name ([[node+0x28]]), blend [node+0x38], -1/-1, flag [node+0x50]} and calls main+0x2022A0;
+  seen in Castle Town playing "Push_L_ByNpc". Dark Link's own AINB AS nodes did not run while
+  it fought; its AINB ran SelectorDarkLinkBackFlip, so its animation comes from its ActionSeq
+  (BSA) state machine, not AINB AS nodes.

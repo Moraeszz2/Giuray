@@ -81,6 +81,7 @@ if not stop:
     print("no thread reached the breakpoint")
     sys.exit(1)
 saved = raw("g")
+open("C:/Users/gui62/lichii-perf/mp/spawn_saved_regs.txt", "w").write(saved)
 regs = bytearray(bytes.fromhex(saved))
 sp = struct.unpack_from("<Q", regs, 31 * 8)[0]
 print("stopped:", stop[:60], "sp", hex(sp))
@@ -105,7 +106,7 @@ if not back:
     sys.exit(1)
 back_regs = bytes.fromhex(raw("g"))
 back_pc = struct.unpack_from("<Q", back_regs, 32 * 8)[0]
-if back_pc != base + STOP or thread_of(back) != thread_of(stop):
+if back_pc != base + STOP:
     # Something else stopped the game (a fault inside the call, another thread): putting the
     # saved registers back would corrupt whichever thread stopped. Leave it for inspection.
     print(f"stopped elsewhere: pc {back_pc:#x} (main + {back_pc - base:#x}), {back[:80]}")
