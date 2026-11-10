@@ -2390,6 +2390,7 @@ bool MainWindow::OnShutdownBegin() {
         perf_overlay = nullptr;
     }
     if (mp_overlay) {
+        Core::Nx2Multiplayer::Shutdown();
         mp_overlay->hide();
         mp_overlay->deleteLater();
         mp_overlay = nullptr;

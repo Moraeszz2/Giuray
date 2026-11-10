@@ -16,6 +16,7 @@ class MultiplayerOverlay : public QWidget {
 
 public:
     explicit MultiplayerOverlay(QWidget* render_window, QWidget* parent = nullptr);
+    ~MultiplayerOverlay() override;
 
 protected:
     void paintEvent(QPaintEvent* event) override;

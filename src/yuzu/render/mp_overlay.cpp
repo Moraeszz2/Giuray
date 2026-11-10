@@ -55,6 +55,10 @@ MultiplayerOverlay::MultiplayerOverlay(QWidget* render_window_, QWidget* parent)
     timer.start(33);
 }
 
+MultiplayerOverlay::~MultiplayerOverlay() {
+    Core::Nx2Multiplayer::Shutdown();
+}
+
 void MultiplayerOverlay::Tick() {
     if (QtCommon::system) {
         frame = Core::Nx2Multiplayer::Tick(*QtCommon::system);

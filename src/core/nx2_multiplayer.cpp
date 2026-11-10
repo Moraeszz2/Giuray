@@ -1,12 +1,15 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include <algorithm>
+#include <atomic>
 #include <chrono>
 #include <cmath>
 #include <cstdlib>
 #include <cstring>
 #include <deque>
+#include <mutex>
 #include <optional>
+#include <thread>
 #include <span>
 #include <string>
 #include <vector>
@@ -71,12 +74,25 @@ struct State {
     std::deque<std::pair<std::chrono::steady_clock::time_point, Player>> ghost;
     bool ghost_mode = false;
     bool puppet_installed = false;
+    // Puppet selection: a background scan of the heap for actors (their vtable), refreshed after
+    // a scene change; the nearest usable one becomes the puppet.
+    std::mutex scan_mutex;
+    std::vector<u64> scanned_actors;
+    std::optional<std::thread> scanner;
+    std::atomic<bool> scanning{false};
+    std::atomic<bool> stop_scan{false};
+    std::chrono::steady_clock::time_point last_scan{};
+    std::array<float, 3> scan_origin{};
+    u64 puppet_actor = 0;
+    u64 puppet_component = 0;
     std::string network_status;
 };
 
 State& GetState() {
-    static State state;
-    return state;
+    // Never destroyed: a scanner thread still running at exit must not be joined from a static
+    // destructor (Tick stops it when the game closes).
+    static State* const state = new State;
+    return *state;
 }
 
 const char* Env(const char* name) {
@@ -161,8 +177,8 @@ std::optional<Player> ReadLink(Core::Memory::Memory& memory, u64 base) {
             !Read(memory, *actor + ActorRotation, rotation) || !Sane(player.position)) {
             continue;
         }
-        // The third row is the actor's forward axis.
-        player.facing = {rotation[6], rotation[8]};
+        // The third column is the actor's forward (+Z) axis.
+        player.facing = {rotation[2], rotation[8]};
         return player;
     }
     return std::nullopt;
@@ -386,16 +402,159 @@ void WritePuppet(Kernel::KProcess& process, u64 base, const Player& remote) {
         fx /= length;
         fz /= length;
     }
-    // Rows of a 3x4 world matrix; the third row is the forward axis (as in the actor rotation).
+    // Rows of a 3x4 world matrix turned about Y: its third column, the forward axis, is the facing.
     const std::array<float, 12> matrix{
-        fz,  0, -fx, remote.position[0],
-        0,   1, 0,   remote.position[1],
-        fx,  0, fz,  remote.position[2],
+        fz,  0, fx, remote.position[0],
+        0,   1, 0,  remote.position[1],
+        -fx, 0, fz, remote.position[2],
     };
     std::memcpy(control + 16, matrix.data(), sizeof(matrix));
 }
 
+/// The physics component an actor's transform comes from: [[[[actor + 0x270] + 0x50] + 0x20] + 0x190].
+std::optional<u64> ComponentOf(Core::Memory::Memory& memory, u64 actor) {
+    u64 node = actor;
+    for (const u64 offset : {0x270ULL, 0x50ULL, 0x20ULL, 0x190ULL}) {
+        if (!Read(memory, node + offset, node) || node == 0) {
+            return std::nullopt;
+        }
+    }
+    std::array<float, 12> matrix;
+    if (!Read(memory, node + 0x80, matrix) ||
+        !Sane({matrix[3], matrix[7], matrix[11]}) || std::fabs(matrix[5] - 1.0f) > 0.2f) {
+        return std::nullopt;
+    }
+    return node;
+}
+
+void StartScan(State& state, Kernel::KProcess& process, u64 base) {
+    if (state.scanning.exchange(true)) {
+        return;
+    }
+    if (state.scanner && state.scanner->joinable()) {
+        state.scanner->join();
+    }
+    const u64 vtable = base + ActorVtableOffset;
+    auto& page_table = process.GetPageTable();
+    const u64 heap_start = GetInteger(page_table.GetHeapRegionStart());
+    const u64 heap_end = heap_start + page_table.GetHeapRegionSize();
+    Core::Memory::Memory* const memory = &process.GetMemory();
+    state.scanner.emplace([&state, memory, vtable, heap_start, heap_end] {
+        std::vector<u64> actors;
+        for (u64 page = heap_start; page < heap_end; page += Core::Memory::YUZU_PAGESIZE) {
+            const u8* const bytes = memory->GetPointerSilent(page);
+            if (bytes == nullptr) {
+                continue;
+            }
+            if (state.stop_scan) {
+                break;
+            }
+            for (u64 offset = 0; offset < Core::Memory::YUZU_PAGESIZE; offset += 8) {
+                u64 value;
+                std::memcpy(&value, bytes + offset, sizeof(value));
+                if (value == vtable) {
+                    actors.push_back(page + offset);
+                }
+            }
+        }
+        {
+            std::scoped_lock lock{state.scan_mutex};
+            state.scanned_actors = std::move(actors);
+        }
+        state.scanning = false;
+    });
+}
+
+/// Keeps a puppet chosen: the nearest actor 2 to 25 units from Link with a physics component,
+/// none of Link's own parts. Returns a short status.
+std::string UpdatePuppet(State& state, Kernel::KProcess& process, u64 base, const Player& link,
+                         const Player& remote) {
+    auto& memory = process.GetMemory();
+    u8* const control = memory.GetPointerSilent(base + ControlOffset);
+    if (control == nullptr) {
+        return "puppet: no control block";
+    }
+    const auto set_component = [&](u64 component) {
+        std::memcpy(control, &component, sizeof(component));
+    };
+    if (!remote.valid) {
+        set_component(0);
+        return "puppet: idle";
+    }
+    const auto distance = [](const std::array<float, 3>& a, const std::array<float, 3>& b) {
+        return std::sqrt((a[0] - b[0]) * (a[0] - b[0]) + (a[1] - b[1]) * (a[1] - b[1]) +
+                         (a[2] - b[2]) * (a[2] - b[2]));
+    };
+    const auto now = std::chrono::steady_clock::now();
+    // Still valid: the component chain holds and no scene change moved Link far away.
+    if (state.puppet_component != 0 && ComponentOf(memory, state.puppet_actor) == state.puppet_component &&
+        distance(link.position, state.scan_origin) < 40.0f) {
+        set_component(state.puppet_component);
+        return fmt::format("puppet: actor {:#x}", state.puppet_actor);
+    }
+    set_component(0);
+    state.puppet_actor = 0;
+    state.puppet_component = 0;
+    std::vector<u64> actors;
+    {
+        std::scoped_lock lock{state.scan_mutex};
+        actors = state.scanned_actors;
+    }
+    if (actors.empty() || distance(link.position, state.scan_origin) >= 40.0f) {
+        if (!state.scanning && now - state.last_scan > std::chrono::seconds{5}) {
+            state.last_scan = now;
+            state.scan_origin = link.position;
+            {
+                std::scoped_lock lock{state.scan_mutex};
+                state.scanned_actors.clear();
+            }
+            StartScan(state, process, base);
+        }
+        return "puppet: looking for actors";
+    }
+    // Link's own components (he is the actor at his exact position and his parts around it).
+    float best = 1e9f;
+    for (const u64 actor : actors) {
+        std::array<float, 3> position;
+        if (!Read(memory, actor + ActorPosition, position) || !Sane(position)) {
+            continue;
+        }
+        const float d = distance(position, link.position);
+        if (d < 2.0f || d > 25.0f || d >= best) {
+            continue;
+        }
+        const auto component = ComponentOf(memory, actor);
+        if (!component) {
+            continue;
+        }
+        best = d;
+        state.puppet_actor = actor;
+        state.puppet_component = *component;
+    }
+    if (state.puppet_component == 0) {
+        return "puppet: no actor nearby";
+    }
+    LOG_INFO(Core, "Nx2 multiplayer: puppet is actor {:#x} (component {:#x}), {:.1f} from Link",
+             state.puppet_actor, state.puppet_component, best);
+    set_component(state.puppet_component);
+    return fmt::format("puppet: actor {:#x}", state.puppet_actor);
+}
+
 } // Anonymous namespace
+
+void Shutdown() {
+    State& state = GetState();
+    state.stop_scan = true;
+    if (state.scanner && state.scanner->joinable()) {
+        state.scanner->join();
+    }
+    state.scanner.reset();
+    state.stop_scan = false;
+    state.scanning = false;
+    state.process_id = ~0ULL;
+    state.puppet_actor = 0;
+    state.puppet_component = 0;
+}
 
 bool Enabled() {
     static const bool enabled = Env("EDEN_NX2_MP") != nullptr;
@@ -406,11 +565,28 @@ Frame Tick(Core::System& system) {
     Frame frame;
     State& state = GetState();
     Kernel::KProcess* const process = system.IsPoweredOn() ? system.ApplicationProcess() : nullptr;
+    const auto stop_scanner = [&state] {
+        state.stop_scan = true;
+        if (state.scanner && state.scanner->joinable()) {
+            state.scanner->join();
+        }
+        state.scanner.reset();
+        state.stop_scan = false;
+        state.scanning = false;
+        std::scoped_lock lock{state.scan_mutex};
+        state.scanned_actors.clear();
+    };
     if (process == nullptr || process->GetProgramId() != OcarinaProgramId) {
+        // The scan reads the old process's memory: stop it before that memory goes away.
+        stop_scanner();
+        state.process_id = ~0ULL;
         frame.status = "multiplayer: waiting for Ocarina of Time";
         return frame;
     }
     if (process->GetProcessId() != state.process_id) {
+        stop_scanner();
+        state.puppet_actor = 0;
+        state.puppet_component = 0;
         state.process_id = process->GetProcessId();
         state.main_base = FindMainBase(*process);
         state.puppet_installed = false;
@@ -426,18 +602,21 @@ Frame Tick(Core::System& system) {
     }
     Exchange(state, frame.local);
     frame.remote = state.remote;
+    std::string puppet_status;
     if (Env("EDEN_NX2_MP_PUPPET")) {
         if (!state.puppet_installed) {
             state.puppet_installed = InstallPuppetDetour(*process, state.main_base);
         }
-        if (state.puppet_installed) {
+        if (state.puppet_installed && link) {
             WritePuppet(*process, state.main_base, frame.remote);
+            puppet_status = UpdatePuppet(state, *process, state.main_base, *link, frame.remote);
         }
     }
     frame.valid = link && ReadCamera(memory, state.main_base, *link, frame);
-    frame.status = fmt::format("multiplayer: {} | Link {} | camera {} | remote {}", state.network_status,
-                               link ? "ok" : "not found", frame.valid ? "ok" : "not found",
-                               frame.remote.valid ? "ok" : "none");
+    frame.status = fmt::format("multiplayer: {} | Link {} | camera {} | remote {}{}{}",
+                               state.network_status, link ? "ok" : "not found",
+                               frame.valid ? "ok" : "not found", frame.remote.valid ? "ok" : "none",
+                               puppet_status.empty() ? "" : " | ", puppet_status);
     return frame;
 }
 

@@ -38,4 +38,7 @@ bool Enabled();
 /// Call from one thread only, about 30 times a second while a game runs.
 Frame Tick(Core::System& system);
 
+/// Stops the background actor scan; call before the game's memory goes away.
+void Shutdown();
+
 } // namespace Core::Nx2Multiplayer
