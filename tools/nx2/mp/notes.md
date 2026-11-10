@@ -71,3 +71,12 @@
   seen in Castle Town playing "Push_L_ByNpc". Dark Link's own AINB AS nodes did not run while
   it fought; its AINB ran SelectorDarkLinkBackFlip, so its animation comes from its ActionSeq
   (BSA) state machine, not AINB AS nodes.
+- AS play from Lichii's side works: call_fn.py runs main+0x2022A0(request) on a caught game
+  thread. Request (0x30 bytes): +0x00 actor (it walks [actor+0x270]...), +0x08 AS name char*,
+  +0x10 u32 0, +0x14 blend frames (float), +0x18 -1.0 -1.0, +0x20 u8 0, +0x28 node (0 is fine).
+  Dark Link accepts "Wait", "Move", "Jump" (returns 1); "Run", "Walk", "Dash", "Idle",
+  "Attack", "Guard" ... return 0. After "Move" the puppet showed a running pose.
+- Writable scratch for a guest-side hook: the main module's .bss ends at main+0x4E9A4C8 (MOD0),
+  so main+0x4E9A500..+0x4E9B000 is mapped read-write and unused.
+- Busiest slot-0xE8 dispatch in Castle Town: main+0x18D6034 (blr x8), 39 of 40 stops; calls
+  made from there (create actor, play AS) work.
