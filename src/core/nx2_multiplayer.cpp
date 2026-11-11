@@ -12,6 +12,7 @@
 #include <optional>
 #include <span>
 #include <string>
+#include <string_view>
 #include <thread>
 #include <vector>
 
@@ -95,6 +96,17 @@ struct State {
     u64 puppet_as_actor = 0;
     u64 local_actor = 0;
     bool input_hooked = false;
+    u64 second_link = 0;
+    u64 spawned_for = 0;
+    bool navi_filtered = false;
+    u64 main_navi = 0;
+    u64 navi = 0;
+    std::chrono::steady_clock::time_point navi_requested{};
+    std::chrono::steady_clock::time_point navi_born{};
+    bool navi_set_up = false;
+    u64 settled_actor = 0;
+    std::chrono::steady_clock::time_point settled_since{};
+    std::chrono::steady_clock::time_point last_spawn{};
     std::chrono::steady_clock::time_point last_correction{};
     std::chrono::steady_clock::time_point drift_since{};
     bool puppet_as_started = false;
@@ -206,6 +218,20 @@ std::string ReadAction(Core::Memory::Memory& memory, u64 actor) {
     return name.data();
 }
 
+bool IsNamed(Core::Memory::Memory& memory, u64 base, u64 actor, std::string_view expected) {
+    u64 vtable;
+    u64 name_pointer;
+    std::array<char, 16> name{};
+    return actor != 0 && Read(memory, actor, vtable) && vtable == base + ActorVtableOffset &&
+           Read(memory, actor + 0x260, name_pointer) && name_pointer != 0 &&
+           Read(memory, name_pointer, name) && expected.size() < name.size() &&
+           std::memcmp(name.data(), expected.data(), expected.size() + 1) == 0;
+}
+
+bool IsNavi(Core::Memory::Memory& memory, u64 base, u64 actor) {
+    return IsNamed(memory, base, actor, "Npc_Navi");
+}
+
 /// Whether an actor is a Link (its name, at actor + 0x260, is "Player_Child").
 bool IsLink(Core::Memory::Memory& memory, u64 base, u64 actor) {
     u64 vtable;
@@ -218,7 +244,8 @@ bool IsLink(Core::Memory::Memory& memory, u64 base, u64 actor) {
 
 /// Reads the local Link. `pinned` keeps the first Link found: a second Player_Child created as a
 /// puppet takes over the pointer chains, and the local Link must stay the one already followed.
-std::optional<Player> ReadLink(Core::Memory::Memory& memory, u64 base, u64& pinned) {
+/// `second` (the second Link, or 0) is never taken for the local one.
+std::optional<Player> ReadLink(Core::Memory::Memory& memory, u64 base, u64& pinned, u64 second) {
     if (pinned != 0 && !IsLink(memory, base, pinned)) {
         pinned = 0;
     }
@@ -228,7 +255,8 @@ std::optional<Player> ReadLink(Core::Memory::Memory& memory, u64 base, u64& pinn
             actor = pinned;
         }
         u64 vtable;
-        if (!actor || !Read(memory, *actor, vtable) || vtable != base + ActorVtableOffset) {
+        if (!actor || (second != 0 && *actor == second) || !Read(memory, *actor, vtable) ||
+            vtable != base + ActorVtableOffset) {
             continue;
         }
         pinned = *actor;
@@ -383,10 +411,15 @@ u32 Branch(u64 from, u64 to) {
 constexpr u64 PlayOffset = 0x2022A0;
 constexpr u32 PlayFirstInstruction = 0xD503237F; // pacibsp
 constexpr u64 DispatchOffset = 0x18D6034;
-constexpr u32 DispatchInstruction = 0xD63F0100; // blr x8
-constexpr u64 HookCaveOffset = CaveOffset + 0x600;
+constexpr u32 DispatchInstruction = 0xD63F0100;    // blr x8
+constexpr u64 HookCaveOffset = CaveOffset + 0x900; // up to 0x100 bytes
 constexpr u64 FilterCaveOffset = CaveOffset + 0x680;
 constexpr u64 NamesOffset = CaveOffset + 0x700; // "Wait", "Move", "Jump", 16 bytes apart
+// ActorMgr's create request, as the AINB node ExecuteGenericRequestCreateActor makes it:
+// (ActorMgr, &name pointer, parameters, handle 0, 1, 0, 0, 0; on the stack u8 0, u64 0, u64 0).
+constexpr u64 CreateActorOffset = 0x372A70;
+constexpr u64 ActorMgrGot = 0x4C7F3E0;
+constexpr u64 DefaultScaleGot = 0x4C7E0B8;
 // The physics teleport ExecuteActorForceSetPos calls: (actor's [+ 0x270] + 0x50, &position,
 // &rotation NaN, 1).
 constexpr u64 ForceSetPositionOffset = 0x4C6630;
@@ -421,19 +454,20 @@ bool InstallAnimationHooks(Kernel::KProcess& process, u64 base) {
         LOG_ERROR(Core, "Nx2 multiplayer: the animation hooks do not match this game build");
         return false;
     }
-    // Two pending pointers at the start of the scratch area: an AS request (+ 0) for the play
-    // call, and a position request (+ 8: physics holder, position, NaN) for the force-set call.
-    const std::array<u32, 26> hook_code{
+    // Three pending pointers at the start of the scratch area: an AS request (+ 0) for the play
+    // call, a position request (+ 8: physics holder, position, NaN) for the force-set call, and a
+    // create request (+ 0x10: ActorMgr, name pointer, name, parameters) for ActorMgr's create.
+    const std::array<u32, 46> hook_code{
         0xA9BC7BFD,                            // stp x29, x30, [sp, #-0x40]!
         0xA90107E0,                            // stp x0, x1, [sp, #0x10]
         0xA9020FE2,                            // stp x2, x3, [sp, #0x20]
         0xA90323E4,                            // stp x4, x8, [sp, #0x30]
-        Literal(hook + 0x10, hook + 0x68, 16), // ldr x16, scratch
+        Literal(hook + 0x10, hook + 0xB8, 16), // ldr x16, scratch
         0xAA1F03F1,                            // mov x17, xzr
         0xF8F18200,                            // swpal x17, x0, [x16]
         0xB4000040,                            // cbz x0, +8
         BranchLink(hook + 0x20, play),
-        Literal(hook + 0x24, hook + 0x68, 16), // ldr x16, scratch
+        Literal(hook + 0x24, hook + 0xB8, 16), // ldr x16, scratch
         0x91002210,                            // add x16, x16, #8
         0xAA1F03F1,                            // mov x17, xzr
         0xF8F18209,                            // swpal x17, x9, [x16]
@@ -443,12 +477,31 @@ bool InstallAnimationHooks(Kernel::KProcess& process, u64 base) {
         0x91005122,                            // add x2, x9, #0x14
         0x52800023,                            // mov w3, #1
         BranchLink(hook + 0x48, base + ForceSetPositionOffset),
+        Literal(hook + 0x4C, hook + 0xB8, 16), // ldr x16, scratch
+        0x91004210,                            // add x16, x16, #0x10
+        0xAA1F03F1,                            // mov x17, xzr
+        0xF8F18209,                            // swpal x17, x9, [x16]
+        0xB40001C9,                            // cbz x9, +0x38
+        0xD10083FF, // sub sp, sp, #0x20 (the three stack arguments, zero)
+        0xA9007FFF, // stp xzr, xzr, [sp]
+        0xA9017FFF, // stp xzr, xzr, [sp, #0x10]
+        0xF9400120, // ldr x0, [x9] (ActorMgr)
+        0x91002121, // add x1, x9, #8 (&name pointer)
+        0x91008122, // add x2, x9, #0x20 (parameters)
+        0xAA1F03E3, // mov x3, xzr
+        0x52800024, // mov w4, #1
+        0xAA1F03E5, // mov x5, xzr
+        0xAA1F03E6, // mov x6, xzr
+        0xAA1F03E7, // mov x7, xzr
+        BranchLink(hook + 0x8C, base + CreateActorOffset),
+        0x910083FF, // add sp, sp, #0x20
         0xA94323E4, // ldp x4, x8, [sp, #0x30]
         0xA9420FE2, // ldp x2, x3, [sp, #0x20]
         0xA94107E0, // ldp x0, x1, [sp, #0x10]
         0xA8C47BFD, // ldp x29, x30, [sp], #0x40
         DispatchInstruction,
-        Branch(hook + 0x60, dispatch + 4),
+        Branch(hook + 0xA8, dispatch + 4),
+        0,
         0,
     };
     const std::array<u32, 12> filter_code{
@@ -474,7 +527,7 @@ bool InstallAnimationHooks(Kernel::KProcess& process, u64 base) {
         return false;
     }
     std::memcpy(hook_host, hook_code.data(), sizeof(hook_code));
-    std::memcpy(hook_host + 0x68, &scratch, sizeof(scratch));
+    std::memcpy(hook_host + 0xB8, &scratch, sizeof(scratch));
     std::memcpy(filter_host, filter_code.data(), sizeof(filter_code));
     std::memcpy(filter_host + 0x40, &control, sizeof(control));
     std::memcpy(names_host + 0x00, "Wait", 5);
@@ -815,6 +868,284 @@ void ReadLocalPad(Core::Memory::Memory& memory, u64 base, Player& local) {
     local.has_pad = controller && Read(memory, *controller + PadStateStart, local.pad);
 }
 
+/// The newest Link: a Player_Child created after the local one takes over Link's pointer chains.
+u64 ChainLink(Core::Memory::Memory& memory, u64 base) {
+    for (const Chain& chain : ActorChains) {
+        const auto actor = Follow(memory, base, chain);
+        if (actor && IsLink(memory, base, *actor)) {
+            return *actor;
+        }
+    }
+    return 0;
+}
+
+/// Queues ActorMgr's create request for the dispatch hook (scratch + 0x10, request at + 0x400):
+/// an actor by name at a position. False while an earlier request is still pending.
+bool QueueCreate(Core::Memory::Memory& memory, u64 base, const char* actor_name,
+                 const std::array<float, 3>& position) {
+    u8* const scratch = memory.GetPointerSilent(base + ScratchOffset);
+    u64 manager_got;
+    u64 manager;
+    u64 scale_address;
+    std::array<float, 3> scale;
+    const size_t name_size = std::strlen(actor_name) + 1;
+    if (scratch == nullptr || name_size > 0x10 ||
+        std::atomic_ref<u64>{*reinterpret_cast<u64*>(scratch + 0x10)}.load() != 0 ||
+        !Read(memory, base + ActorMgrGot, manager_got) || !Read(memory, manager_got, manager) ||
+        manager == 0 || !Read(memory, base + DefaultScaleGot, scale_address) ||
+        !Read(memory, scale_address, scale)) {
+        return false;
+    }
+    // + 0 ActorMgr, + 8 name pointer, + 0x10 name, + 0x20 parameters (0xA0: position, rotation,
+    // scale, instance name pointer at + 0x40, 3 at + 0x98), + 0xC0 instance name.
+    std::array<u8, 0xD0> request{};
+    const u64 address = base + ScratchOffset + 0x400;
+    const u64 name = address + 0x10;
+    const u64 instance = address + 0xC0;
+    constexpr std::array<float, 9> identity{1, 0, 0, 0, 1, 0, 0, 0, 1};
+    std::memcpy(request.data(), &manager, 8);
+    std::memcpy(request.data() + 0x08, &name, 8);
+    std::memcpy(request.data() + 0x10, actor_name, name_size);
+    std::memcpy(request.data() + 0x20, position.data(), 12);
+    std::memcpy(request.data() + 0x2C, identity.data(), sizeof(identity));
+    std::memcpy(request.data() + 0x50, scale.data(), sizeof(scale));
+    std::memcpy(request.data() + 0x60, &instance, 8);
+    request[0x20 + 0x98] = 3;
+    std::memcpy(request.data() + 0xC0, "MpPuppet", 9);
+    std::memcpy(scratch + 0x400, request.data(), request.size());
+    std::atomic_ref<u64>{*reinterpret_cast<u64*>(scratch + 0x10)}.store(address,
+                                                                        std::memory_order_release);
+    return true;
+}
+
+/// Creates the second Link where the remote player is (once per scene, when none exists).
+void SpawnSecondLink(State& state, Kernel::KProcess& process, u64 base, const Player& link,
+                     const Player& remote) {
+    auto& memory = process.GetMemory();
+    const auto now = std::chrono::steady_clock::now();
+    const u64 newest = ChainLink(memory, base);
+    if (newest != 0 && newest != state.local_actor) {
+        state.second_link = newest;
+    }
+    if (state.second_link != 0 && !IsLink(memory, base, state.second_link)) {
+        state.second_link = 0; // gone (a scene change): it may be created again
+        state.spawned_for = 0;
+    }
+    if (state.second_link != 0 || !remote.valid || state.local_actor == 0 ||
+        state.spawned_for == state.local_actor ||
+        now - state.last_spawn < std::chrono::seconds{10}) {
+        return;
+    }
+    // Not while a scene loads: a Link created then takes the camera and the controls, and the
+    // players stand at the origin until they are placed. Both must have been somewhere else, and
+    // the local Link the same actor in the same area, for a few seconds.
+    const auto at_origin = [](const std::array<float, 3>& p) {
+        return std::fabs(p[0]) < 1.0f && std::fabs(p[1]) < 1.0f && std::fabs(p[2]) < 1.0f;
+    };
+    if (at_origin(link.position) || at_origin(remote.position)) {
+        state.settled_since = {};
+        return;
+    }
+    if (state.settled_since == std::chrono::steady_clock::time_point{} ||
+        state.settled_actor != state.local_actor) {
+        state.settled_since = now;
+        state.settled_actor = state.local_actor;
+    }
+    if (now - state.settled_since < std::chrono::seconds{8}) {
+        return;
+    }
+    float squared = 0;
+    for (int i = 0; i < 3; ++i) {
+        squared +=
+            (link.position[i] - remote.position[i]) * (link.position[i] - remote.position[i]);
+    }
+    if (squared > 60.0f * 60.0f) {
+        return; // the remote player is in another area
+    }
+    if (!QueueCreate(memory, base, "Player_Child", remote.position)) {
+        return;
+    }
+    state.last_spawn = now;
+    state.spawned_for = state.local_actor;
+    LOG_INFO(Core, "Nx2 multiplayer: creating the second Link at ({:.1f}, {:.1f}, {:.1f})",
+             remote.position[0], remote.position[1], remote.position[2]);
+}
+
+// The second Link's Navi (EDEN_NX2_MP_NAVI=1), an ornament: a second Npc_Navi whose AI never
+// runs (two Navis corrupt the list ExecuteNaviPushMovementInfo keeps for the one Navi), drawn
+// next to the second Link. The actor AI update (main + 0x2C23780, x0 = actor) returns at once for
+// an actor named "Npc_Navi" that is not the scene's own Navi, kept at scratch + 0x500 (0: none
+// filtered).
+constexpr u64 AiUpdateOffset = 0x2C23780;
+constexpr u32 AiUpdateFirstInstruction = 0xD503237F; // pacibsp
+constexpr u64 AiFilterCaveOffset = CaveOffset + 0xA00;
+constexpr u64 MainNaviSlot = ScratchOffset + 0x500;
+constexpr u64 NaviUpdatesSlot = ScratchOffset + 0x508;
+
+bool NaviMode() {
+    static const bool enabled = [] {
+        const char* value = Env("EDEN_NX2_MP_NAVI");
+        return value && std::strcmp(value, "1") == 0;
+    }();
+    return enabled;
+}
+
+bool InstallNaviFilter(Kernel::KProcess& process, u64 base) {
+    auto& memory = process.GetMemory();
+    const u64 update = base + AiUpdateOffset;
+    const u64 cave = base + AiFilterCaveOffset;
+    u32 first = 0;
+    std::array<u8, 0x80> free_cave{};
+    if (!Read(memory, update, first) || !Read(memory, cave, free_cave) ||
+        first != AiUpdateFirstInstruction ||
+        std::ranges::any_of(free_cave, [](u8 byte) { return byte != 0; })) {
+        LOG_ERROR(Core, "Nx2 multiplayer: the Navi filter does not match this game build");
+        return false;
+    }
+    // Another Navi's AI runs only while the counter (scratch + 0x508) is above zero, one update
+    // per count.
+    const std::array<u32, 22> code{
+        0xF9413010,                            // ldr x16, [x0, #0x260] (the actor's name)
+        0xB4000290,                            // cbz x16, run
+        0xF9400211,                            // ldr x17, [x16]
+        Literal(cave + 0x0C, cave + 0x60, 9),  // ldr x9, ="Npc_Navi"
+        0xEB09023F,                            // cmp x17, x9
+        0x54000201,                            // b.ne run
+        0x39402211,                            // ldrb w17, [x16, #8]
+        0x350001D1,                            // cbnz w17, run
+        Literal(cave + 0x20, cave + 0x68, 9),  // ldr x9, =main Navi slot
+        0xF9400129,                            // ldr x9, [x9]
+        0xB4000169,                            // cbz x9, run (no Navi filtered)
+        0xEB09001F,                            // cmp x0, x9
+        0x54000120,                            // b.eq run (the scene's Navi)
+        Literal(cave + 0x34, cave + 0x70, 16), // ldr x16, =counter
+        0xB9400211,                            // ldr w17, [x16]
+        0x340000B1,                            // cbz w17, skip
+        0x51000631,                            // sub w17, w17, #1
+        0xB9000211,                            // str w17, [x16]
+        0x14000003,                            // b run
+        0xD503201F,                            // nop
+        0xD65F03C0,                            // skip: ret
+        AiUpdateFirstInstruction,              // run
+    };
+    u8* const cave_host = memory.GetPointerSilent(cave);
+    u8* const update_host = memory.GetPointerSilent(update);
+    if (cave_host == nullptr || update_host == nullptr) {
+        return false;
+    }
+    const u64 slot = base + MainNaviSlot;
+    const u64 counter = base + NaviUpdatesSlot;
+    const u32 back = Branch(cave + 0x58, update + 4);
+    std::memcpy(cave_host, code.data(), sizeof(code));
+    std::memcpy(cave_host + 0x58, &back, sizeof(back));
+    std::memcpy(cave_host + 0x60, "Npc_Navi", 8);
+    std::memcpy(cave_host + 0x68, &slot, sizeof(slot));
+    std::memcpy(cave_host + 0x70, &counter, sizeof(counter));
+    const u32 jump = Branch(update, cave);
+    std::memcpy(update_host, &jump, 4);
+    Core::InvalidateInstructionCacheRange(&process, cave, 0x80);
+    Core::InvalidateInstructionCacheRange(&process, update, 4);
+    LOG_INFO(Core, "Nx2 multiplayer: Navi filter installed at {:#x}", update);
+    return true;
+}
+
+/// Creates the second Navi once the second Link is there, and keeps it next to him.
+void UpdateNavi(State& state, Kernel::KProcess& process, u64 base) {
+    auto& memory = process.GetMemory();
+    u64* const slot = reinterpret_cast<u64*>(memory.GetPointerSilent(base + MainNaviSlot));
+    if (slot == nullptr) {
+        return;
+    }
+    const auto now = std::chrono::steady_clock::now();
+    if (state.navi != 0 && !IsNavi(memory, base, state.navi)) {
+        state.navi = 0;
+    }
+    if (state.main_navi != 0 && !IsNavi(memory, base, state.main_navi)) {
+        state.main_navi = 0;
+        state.navi = 0;
+        state.navi_requested = {};
+        state.navi_born = {};
+        state.navi_set_up = false;
+        std::atomic_ref<u64>{*slot}.store(0);
+    }
+    const auto component =
+        state.second_link ? ComponentOf(memory, state.second_link) : std::nullopt;
+    std::array<float, 12> body;
+    if (!component || !Read(memory, *component + 0x80, body)) {
+        return;
+    }
+    if (state.navi == 0) {
+        // The Navis in the last scan: the scene's own one, and the one created for the second
+        // Link once it is there.
+        std::vector<u64> actors;
+        {
+            std::scoped_lock lock{state.scan_mutex};
+            actors = state.scanned_actors;
+        }
+        std::vector<u64> navis;
+        for (const u64 actor : actors) {
+            if (IsNavi(memory, base, actor)) {
+                navis.push_back(actor);
+            }
+        }
+        if (state.main_navi == 0 && navis.size() == 1 &&
+            state.navi_requested == std::chrono::steady_clock::time_point{}) {
+            state.main_navi = navis[0];
+        }
+        if (state.main_navi != 0) {
+            for (const u64 actor : navis) {
+                if (actor != state.main_navi) {
+                    state.navi = actor;
+                    state.navi_born = {};
+                    state.navi_set_up = false;
+                    LOG_INFO(Core, "Nx2 multiplayer: the second Link's Navi is {:#x}", actor);
+                }
+            }
+        }
+        if (state.navi == 0 && !state.scanning && now - state.last_scan > std::chrono::seconds{3}) {
+            state.last_scan = now;
+            StartScan(state, process, base);
+        }
+        if (state.main_navi != 0 && state.navi == 0 &&
+            (state.navi_requested == std::chrono::steady_clock::time_point{} ||
+             now - state.navi_requested > std::chrono::seconds{20})) {
+            // The scene's Navi is known before the second one exists, or the filter would stop
+            // both.
+            std::atomic_ref<u64>{*slot}.store(state.main_navi);
+            if (QueueCreate(memory, base, "Npc_Navi", {body[3], body[7] + 1.4f, body[11]})) {
+                state.navi_requested = now;
+                LOG_INFO(Core, "Nx2 multiplayer: creating the second Link's Navi");
+            }
+        }
+        return;
+    }
+    // Created with no AI, the Navi never finishes setting up (no model update, no glow): a few
+    // seconds after it exists (sooner it did not set it up), one AI update is let through, once.
+    if (state.navi_born == std::chrono::steady_clock::time_point{}) {
+        state.navi_born = now;
+    } else if (!state.navi_set_up && now - state.navi_born > std::chrono::seconds{5}) {
+        if (u32* const updates =
+                reinterpret_cast<u32*>(memory.GetPointerSilent(base + NaviUpdatesSlot))) {
+            std::atomic_ref<u32>{*updates}.store(1);
+            state.navi_set_up = true;
+            LOG_INFO(Core, "Nx2 multiplayer: one AI update for the second Link's Navi");
+        }
+    }
+    // Over the second Link's shoulder, drawn there (the puppet detour) and kept there.
+    const std::array<float, 3> position{body[3] + 0.45f, body[7] + 1.0f, body[11]};
+    if (const auto navi_component = ComponentOf(memory, state.navi)) {
+        if (u8* const control = memory.GetPointerSilent(base + ControlOffset)) {
+            const std::array<float, 12> matrix{1, 0,           0, position[0], 0, 1,
+                                               0, position[1], 0, 0,           1, position[2]};
+            std::memcpy(control + 16, matrix.data(), sizeof(matrix));
+            std::memcpy(control, &*navi_component, sizeof(u64));
+        }
+    } else if (u8* const pending = memory.GetPointerSilent(state.navi + 0x358)) {
+        // No physics body: the actor's pending position (+ 0x358) moves it.
+        std::memcpy(pending, position.data(), sizeof(position));
+    }
+}
+
 /// Moves the puppet's body to the remote player when the two have drifted apart: queues the
 /// game's physics teleport for the dispatch hook (scratch + 8, request at + 0xC0).
 void CorrectPuppetPosition(State& state, Kernel::KProcess& process, u64 base,
@@ -936,8 +1267,12 @@ std::string UpdatePuppet(State& state, Kernel::KProcess& process, u64 base, cons
         return "puppet: no control block";
     }
     const auto set_component = [&](u64 component) {
-        const u64 drawn = InputMode() ? 0 : component;
-        std::memcpy(control, &drawn, sizeof(drawn));
+        if (InputMode()) {
+            // The puppet keeps its own body; control + 8 names the second Link for the input
+            // hook whatever the puppet is (Tick writes it).
+            return;
+        }
+        std::memcpy(control, &component, sizeof(component));
         // The animation filter refuses the puppet actor's own AS requests.
         const u64 actor = component != 0 ? state.puppet_actor : 0;
         std::memcpy(control + 8, &actor, sizeof(actor));
@@ -979,6 +1314,10 @@ std::string UpdatePuppet(State& state, Kernel::KProcess& process, u64 base, cons
     {
         std::scoped_lock lock{state.scan_mutex};
         actors = state.scanned_actors;
+    }
+    // The second Link Lichii created is known without a scan.
+    if (state.second_link != 0 && std::ranges::find(actors, state.second_link) == actors.end()) {
+        actors.push_back(state.second_link);
     }
     if (actors.empty() || distance(link.position, state.scan_origin) >= 40.0f) {
         if (!state.scanning && now - state.last_scan > std::chrono::seconds{5}) {
@@ -1041,6 +1380,12 @@ std::string UpdatePuppet(State& state, Kernel::KProcess& process, u64 base, cons
         state.puppet_component = *component;
     }
     if (state.puppet_component == 0) {
+        // Scan again now and then: the actor a puppet is made of may be created later (the
+        // second Link is), and without a puppet nothing else starts a scan.
+        if (!state.scanning && now - state.last_scan > std::chrono::seconds{5}) {
+            state.last_scan = now;
+            StartScan(state, process, base);
+        }
         return "puppet: no actor nearby";
     }
     LOG_INFO(Core, "Nx2 multiplayer: puppet is actor {:#x} (component {:#x}), {:.1f} from Link",
@@ -1152,13 +1497,22 @@ Frame Tick(Core::System& system) {
         state.main_base = FindMainBase(*process);
         state.puppet_installed = false;
         state.local_actor = 0;
+        state.second_link = 0;
+        state.spawned_for = 0;
+        state.puppet_preferred = false;
+        state.navi_filtered = false;
+        state.main_navi = 0;
+        state.navi = 0;
+        state.navi_requested = {};
+        state.navi_born = {};
+        state.navi_set_up = false;
         LOG_INFO(Core, "Nx2 multiplayer: main module at {:#x}", state.main_base);
         if (!state.socket && !state.ghost_mode) {
             SetUpNetwork(state);
         }
     }
     auto& memory = process->GetMemory();
-    const auto link = ReadLink(memory, state.main_base, state.local_actor);
+    const auto link = ReadLink(memory, state.main_base, state.local_actor, state.second_link);
     if (link) {
         frame.local = *link;
         ReadLocalPad(memory, state.main_base, frame.local);
@@ -1184,11 +1538,28 @@ Frame Tick(Core::System& system) {
             if (!state.input_hooked) {
                 state.input_hooked = InstallInputHook(*process, state.main_base);
             }
+            if (link) {
+                SpawnSecondLink(state, *process, state.main_base, *link, frame.remote);
+            }
+            if (u8* const control = memory.GetPointerSilent(state.main_base + ControlOffset)) {
+                std::memcpy(control + 8, &state.second_link, sizeof(state.second_link));
+            }
             WriteRemotePad(state, memory, state.main_base, frame.remote, frame);
             CorrectPuppetPosition(state, *process, state.main_base, frame.remote);
+            if (NaviMode()) {
+                if (!state.navi_filtered) {
+                    state.navi_filtered = InstallNaviFilter(*process, state.main_base);
+                }
+                if (state.navi_filtered) {
+                    UpdateNavi(state, *process, state.main_base);
+                }
+            }
         }
         if (state.puppet_installed && link) {
-            WritePuppet(*process, state.main_base, frame.remote);
+            if (!InputMode()) {
+                // In input mode the control block draws the second Link's Navi instead.
+                WritePuppet(*process, state.main_base, frame.remote);
+            }
             puppet_status = UpdatePuppet(state, *process, state.main_base, *link, frame.remote);
             // Experiment switch: EDEN_NX2_MP_ANIM=0 leaves the puppet's animations alone.
             const char* anim = Env("EDEN_NX2_MP_ANIM");

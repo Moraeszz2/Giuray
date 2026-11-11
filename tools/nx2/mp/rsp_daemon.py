@@ -76,16 +76,22 @@ class Stub:
             return None
 
 
-stub = Stub()
 # The process starts suspended for the debugger; let it run. Connected before the game's process
-# exists, the stub reports a thread with all registers zero: wait for a real one, then continue.
+# exists, the stub reports a thread with all registers zero, or stops answering: wait for a real
+# thread, and connect again when a connection gets no answer for a while.
 first = None
-for _ in range(120):
-    stub.send("?")
-    first = stub.stop_reply(10)
+while True:
+    stub = Stub()
+    for _ in range(5):
+        stub.send("?")
+        first = stub.stop_reply(3)
+        if first and "20:0000000000000000" not in first:
+            break
+        time.sleep(1)
     if first and "20:0000000000000000" not in first:
         break
-    time.sleep(1)
+    stub.sock.close()
+    time.sleep(2)
 stub.send("c")
 print("connected; initial status", first, flush=True)
 
