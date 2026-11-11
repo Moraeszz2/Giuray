@@ -252,6 +252,7 @@ add_executable(yuzu
     configuration/addon/mod_select_dialog.h configuration/addon/mod_select_dialog.cpp configuration/addon/mod_select_dialog.ui
 
     render/performance_overlay.h render/performance_overlay.cpp
+    render/mp_dialog.h render/mp_dialog.cpp
     render/mp_overlay.h render/mp_overlay.cpp
     updater/update_dialog.h updater/update_dialog.cpp updater/update_dialog.ui
     game/common.h

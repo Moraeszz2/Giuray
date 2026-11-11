@@ -14,6 +14,7 @@
 #include "common/settings.h"
 #include "common/settings_enums.h"
 #include "frontend_common/settings_generator.h"
+#include "render/mp_dialog.h"
 #include "render/mp_overlay.h"
 #include "render/performance_overlay.h"
 #ifdef HAS_RESHADE
@@ -1560,6 +1561,12 @@ void MainWindow::ConnectMenuEvents() {
         // Add actions to the render window so that they work outside of single window mode
         render_window->addAction(action);
     };
+
+    // Ocarina of Time multiplayer prototype: host or join a room.
+    auto* const multiplayer_action =
+        ui->menu_Tools->addAction(tr("Multiplayer (Ocarina of Time)..."));
+    multiplayer_action->setShortcut(QKeySequence{Qt::CTRL | Qt::SHIFT | Qt::Key_M});
+    connect_menu(multiplayer_action, &MainWindow::OnOcarinaMultiplayer);
 
     // File
     connect_menu(ui->action_Load_File, &MainWindow::OnMenuLoadFile);
@@ -3445,6 +3452,21 @@ void MainWindow::OnLoadComplete() {
     if (Core::Nx2Multiplayer::Enabled() && !mp_overlay) {
         mp_overlay = new MultiplayerOverlay(render_window, this);
     }
+}
+
+void MainWindow::OnOcarinaMultiplayer() {
+    if (!mp_dialog) {
+        mp_dialog = new MultiplayerDialog(
+            [this] {
+                if (emulation_running && !mp_overlay) {
+                    mp_overlay = new MultiplayerOverlay(render_window, this);
+                }
+            },
+            this);
+    }
+    mp_dialog->show();
+    mp_dialog->raise();
+    mp_dialog->activateWindow();
 }
 
 void MainWindow::OnExecuteProgram(std::size_t program_index) {

@@ -46,6 +46,14 @@ struct Frame {
 
 bool Enabled();
 
+/// Hosts a room (`code` empty) or joins one, from Lichii's menu: turns the prototype on for this
+/// run with the second-Link settings, as the environment would. Call from the thread that ticks.
+void StartRoom(const std::string& code, const std::string& name);
+
+/// The room's code (empty without a room) and the network status line.
+std::string RoomCode();
+std::string NetworkStatus();
+
 /// Call from one thread only, about 30 times a second while a game runs.
 Frame Tick(Core::System& system);
 

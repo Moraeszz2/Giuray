@@ -64,6 +64,7 @@ class QSlider;
 class QHBoxLayout;
 class WaitTreeWidget;
 class PerformanceOverlay;
+class MultiplayerDialog;
 class MultiplayerOverlay;
 #ifdef HAS_RESHADE
 class ConfigurePostProcessing;
@@ -240,6 +241,7 @@ signals:
 
 public slots:
     void OnLoadComplete();
+    void OnOcarinaMultiplayer();
     void OnExecuteProgram(std::size_t program_index);
     void OnExit();
     void OnSaveConfig();
@@ -537,6 +539,7 @@ private:
     OverlayDialog* shutdown_dialog{};
     PerformanceOverlay* perf_overlay = nullptr;
     MultiplayerOverlay* mp_overlay = nullptr;
+    MultiplayerDialog* mp_dialog = nullptr;
 #ifdef HAS_RESHADE
     ConfigurePostProcessing* post_processing_dialog = nullptr;
 #endif

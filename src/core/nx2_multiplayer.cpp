@@ -29,6 +29,8 @@
 #include "core/hle/result.h"
 #include "core/memory.h"
 #include "core/nx2_multiplayer.h"
+#include "core/nx2_room.h"
+#include "core/nx2_upnp.h"
 
 namespace Core::Nx2Multiplayer {
 namespace {
@@ -117,7 +119,25 @@ struct State {
     u64 scan_generation = 0;
     u64 used_generation = 0;
     std::string network_status;
+    // Hosting: the router's port forward, asked for on a thread (UPnP takes a few seconds).
+    std::optional<std::thread> upnp;
+    std::atomic<bool> upnp_done{false};
+    std::optional<Nx2Upnp::Mapping> upnp_mapping;
+    bool upnp_reported = false;
+    // Room codes (EDEN_NX2_MP_ROOM: HOST, or the code to join): STUN on the game socket, the
+    // addresses traded on a public board.
+    std::optional<Nx2Room::Room> room;
+    std::optional<boost::asio::ip::udp::endpoint> stun_server;
+    std::chrono::steady_clock::time_point last_stun{};
+    std::string room_peer;
+    bool restart_network = false; ///< StartRoom asked for a new socket and room.
 };
+
+/// The room code to host or join (EDEN_NX2_MP_ROOM), or nothing.
+const char* RoomSetting() {
+    const char* value = std::getenv("EDEN_NX2_MP_ROOM");
+    return value && *value ? value : nullptr;
+}
 
 State& GetState() {
     // Never destroyed: a scanner thread still running at exit must not be joined from a static
@@ -315,8 +335,28 @@ void SetUpNetwork(State& state) {
             udp::resolver resolver{state.io};
             state.peer = *resolver.resolve(udp::v4(), host, peer_port).begin();
         }
-        state.network_status = fmt::format(
-            "UDP {} -> {}", port, Env("EDEN_NX2_MP_PEER") ? Env("EDEN_NX2_MP_PEER") : "(no peer)");
+        state.network_status = Env("EDEN_NX2_MP_PEER")
+                                   ? fmt::format("UDP {} -> {}", port, Env("EDEN_NX2_MP_PEER"))
+                                   : fmt::format("hosting on UDP {}, waiting for a player", port);
+        if (const char* room = RoomSetting()) {
+            const bool host = std::string_view{room} == "HOST";
+            state.room.emplace();
+            state.room->host = host;
+            state.room->code = host ? Nx2Room::NewCode() : std::string{room};
+            udp::resolver resolver{state.io};
+            state.stun_server = *resolver.resolve(udp::v4(), "stun.l.google.com", "19302").begin();
+            Nx2Room::Start(*state.room);
+            state.network_status =
+                host ? fmt::format("sala {}: esperando o amigo", state.room->code)
+                     : fmt::format("sala {}: procurando o host", state.room->code);
+        } else if (!Env("EDEN_NX2_MP_PEER") && !state.upnp) {
+            // Hosting: ask the router to forward the port, so the other player can join with
+            // this PC's public address.
+            state.upnp.emplace([&state, port] {
+                state.upnp_mapping = Nx2Upnp::ForwardUdpPort(port);
+                state.upnp_done = true;
+            });
+        }
     } catch (const std::exception& error) {
         state.network_status = fmt::format("network error: {}", error.what());
         state.socket.reset();
@@ -356,16 +396,76 @@ void Exchange(State& state, const Player& local) {
         packet.camera[1] = local.camera[1];
         state.socket->send_to(boost::asio::buffer(&packet, sizeof(packet)), *state.peer, 0, error);
     }
+    // Rooms: learn this socket's public address (again every 20 s, which also keeps the router's
+    // mapping open), and send to the other player once the board has its address.
+    if (state.room && state.stun_server &&
+        now - state.last_stun > std::chrono::seconds{state.room->public_address.empty() ? 1 : 20}) {
+        state.last_stun = now;
+        const auto request = Nx2Room::StunRequest();
+        state.socket->send_to(boost::asio::buffer(request), *state.stun_server, 0, error);
+    }
+    if (state.room) {
+        std::string peer;
+        {
+            std::scoped_lock lock{state.room->mutex};
+            peer = state.room->peer_address;
+        }
+        if (!peer.empty() && peer != state.room_peer) {
+            state.room_peer = peer;
+            const size_t colon = peer.rfind(':');
+            boost::system::error_code parse_error;
+            const auto address =
+                boost::asio::ip::make_address_v4(peer.substr(0, colon), parse_error);
+            if (!parse_error && colon != std::string::npos) {
+                state.peer.emplace(
+                    address, static_cast<unsigned short>(std::atoi(peer.c_str() + colon + 1)));
+                state.network_status =
+                    fmt::format("sala {}: conectando a {}", state.room->code, peer);
+            }
+        }
+    }
     for (;;) {
-        Packet packet{};
+        std::array<u8, 512> datagram;
         boost::asio::ip::udp::endpoint from;
-        const size_t size = state.socket->receive_from(boost::asio::buffer(&packet, sizeof(packet)),
-                                                       from, 0, error);
-        if (error || size != sizeof(packet)) {
+        const size_t size =
+            state.socket->receive_from(boost::asio::buffer(datagram), from, 0, error);
+        if (error) {
             break;
         }
+        if (state.room && state.stun_server && from == *state.stun_server) {
+            if (const auto address = Nx2Room::StunAddress({datagram.data(), size})) {
+                std::scoped_lock lock{state.room->mutex};
+                if (state.room->public_address != *address) {
+                    state.room->public_address = *address;
+                    LOG_INFO(Core, "Nx2 multiplayer: room {}: this player is at {}",
+                             state.room->code, *address);
+                }
+            }
+            continue;
+        }
+        Packet packet{};
+        if (size != sizeof(packet)) {
+            continue;
+        }
+        std::memcpy(&packet, datagram.data(), sizeof(packet));
         if (packet.magic != PacketMagic) {
             continue;
+        }
+        if (state.room) {
+            state.room->connected = true;
+        }
+        if (state.room && state.remote_time < now - std::chrono::seconds{2}) {
+            state.network_status = fmt::format("sala {}: conectado", state.room->code);
+        }
+        // Hosting (no EDEN_NX2_MP_PEER): answer whoever joins, at the address its packets come
+        // from, which also gets through the joining player's router.
+        if (!Env("EDEN_NX2_MP_PEER") && state.peer != from) {
+            state.peer = from;
+            if (!state.room) {
+                state.network_status =
+                    fmt::format("hosting, {} joined", from.address().to_string());
+            }
+            LOG_INFO(Core, "Nx2 multiplayer: {} joined", from.address().to_string());
         }
         packet.name[sizeof(packet.name) - 1] = '\0';
         packet.action[sizeof(packet.action) - 1] = '\0';
@@ -381,6 +481,9 @@ void Exchange(State& state, const Player& local) {
     }
     if (now - state.remote_time > std::chrono::seconds{2}) {
         state.remote.valid = false;
+        if (state.room) {
+            state.room->connected = false;
+        }
     }
 }
 
@@ -1463,8 +1566,46 @@ void Shutdown() {
 }
 
 bool Enabled() {
-    static const bool enabled = Env("EDEN_NX2_MP") != nullptr;
-    return enabled;
+    // Not cached: StartRoom turns it on while a game runs.
+    return Env("EDEN_NX2_MP") != nullptr;
+}
+
+namespace {
+
+void SetEnv(const char* name, const std::string& value) {
+#ifdef _WIN32
+    _putenv_s(name, value.c_str());
+#else
+    if (value.empty()) {
+        unsetenv(name);
+    } else {
+        setenv(name, value.c_str(), 1);
+    }
+#endif
+}
+
+} // Anonymous namespace
+
+void StartRoom(const std::string& code, const std::string& name) {
+    SetEnv("EDEN_NX2_MP", "1");
+    SetEnv("EDEN_NX2_MP_PUPPET", "1");
+    SetEnv("EDEN_NX2_MP_PUPPET_NAME", "Player_Child");
+    SetEnv("EDEN_NX2_MP_ANIM", "0");
+    SetEnv("EDEN_NX2_MP_INPUT", "1");
+    SetEnv("EDEN_NX2_MP_NAVI", "1");
+    SetEnv("EDEN_NX2_MP_PEER", "");
+    SetEnv("EDEN_NX2_MP_ROOM", code.empty() ? "HOST" : code);
+    SetEnv("EDEN_NX2_MP_NAME", name.empty() ? "P1" : name);
+    GetState().restart_network = true;
+}
+
+std::string RoomCode() {
+    State& state = GetState();
+    return state.room ? state.room->code : std::string{};
+}
+
+std::string NetworkStatus() {
+    return GetState().network_status;
 }
 
 Frame Tick(Core::System& system) {
@@ -1511,6 +1652,24 @@ Frame Tick(Core::System& system) {
             SetUpNetwork(state);
         }
     }
+    if (state.restart_network) {
+        // A room started from the menu: drop the old socket and room, set up again.
+        state.restart_network = false;
+        if (state.room) {
+            state.room->stop = true;
+            if (state.room->board && state.room->board->joinable()) {
+                state.room->board->join();
+            }
+            state.room.reset();
+        }
+        state.socket.reset();
+        state.peer.reset();
+        state.room_peer.clear();
+        state.stun_server.reset();
+        state.last_stun = {};
+        state.remote.valid = false;
+        SetUpNetwork(state);
+    }
     auto& memory = process->GetMemory();
     const auto link = ReadLink(memory, state.main_base, state.local_actor, state.second_link);
     if (link) {
@@ -1525,6 +1684,17 @@ Frame Tick(Core::System& system) {
         if (length > 1e-3f) {
             frame.local.camera = {cx / length, cz / length};
         }
+    }
+    if (state.upnp_done && !state.upnp_reported) {
+        state.upnp_reported = true;
+        state.upnp->join();
+        const char* port_text = Env("EDEN_NX2_MP_PORT");
+        const std::string port = port_text ? port_text : "7777";
+        state.network_status =
+            state.upnp_mapping
+                ? fmt::format("hosting: join with {}:{}", state.upnp_mapping->external_ip, port)
+                : fmt::format("hosting on UDP {} (the router did not open the port)", port);
+        LOG_INFO(Core, "Nx2 multiplayer: {}", state.network_status);
     }
     Exchange(state, frame.local);
     frame.remote = state.remote;
