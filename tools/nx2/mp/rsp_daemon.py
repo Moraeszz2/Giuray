@@ -136,7 +136,8 @@ class Handler(socketserver.StreamRequestHandler):
             self.wfile.flush()
 
 
-socketserver.ThreadingTCPServer.allow_reuse_address = True
+# No address reuse: on Windows it lets a second daemon bind the same port and steal requests.
+socketserver.ThreadingTCPServer.allow_reuse_address = False
 with socketserver.ThreadingTCPServer(SERVE, Handler) as server:
     print("serving on", SERVE, flush=True)
     server.serve_forever()

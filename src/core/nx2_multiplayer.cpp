@@ -60,6 +60,9 @@ struct Packet {
     float position[3];
     float facing[2];
     char name[16];
+    char action[32];
+    u8 has_pad;
+    u8 pad[0x138];
 };
 
 struct State {
@@ -87,11 +90,15 @@ struct State {
     u64 puppet_component = 0;
     bool puppet_preferred = false;
     // Animation: the AS last queued for the puppet (-1 none) and the remote motion it is chosen by.
-    int puppet_as = -1;
+    std::string puppet_as;
     u64 puppet_as_actor = 0;
+    u64 local_actor = 0;
+    bool input_hooked = false;
+    bool puppet_as_started = false;
     std::array<float, 3> last_remote{};
     std::chrono::steady_clock::time_point last_remote_time{};
     float remote_speed = 0;
+    std::chrono::steady_clock::time_point last_moving_time{};
     u64 scan_generation = 0;
     u64 used_generation = 0;
     std::string network_status;
@@ -173,13 +180,53 @@ bool Sane(const std::array<float, 3>& v) {
            std::fabs(v[0]) < 1e5f && std::fabs(v[1]) < 1e5f && std::fabs(v[2]) < 1e5f;
 }
 
-std::optional<Player> ReadLink(Core::Memory::Memory& memory, u64 base) {
+/// The name of the AS in an actor's first AS slot (its body animation): actor + 0x270 -> + 0x40
+/// -> + 0x18 -> + 0x18 is the AS player the play call uses, whose slots (0x48 bytes each) start at
+/// + 0x20; a slot's AS name is at + 0x10.
+std::string ReadAction(Core::Memory::Memory& memory, u64 actor) {
+    u64 node = actor + 0x270;
+    for (const u64 offset : {0x40, 0x18, 0x18, 0x20, 0x0, 0x10}) {
+        u64 value;
+        if (!Read(memory, node, value) || value == 0) {
+            return {};
+        }
+        node = value + offset;
+    }
+    u64 text;
+    std::array<char, 32> name{};
+    if (!Read(memory, node, text) || text == 0 || !Read(memory, text, name)) {
+        return {};
+    }
+    name.back() = '\0';
+    return name.data();
+}
+
+/// Whether an actor is a Link (its name, at actor + 0x260, is "Player_Child").
+bool IsLink(Core::Memory::Memory& memory, u64 base, u64 actor) {
+    u64 vtable;
+    u64 name_pointer;
+    std::array<char, 13> name{};
+    return actor != 0 && Read(memory, actor, vtable) && vtable == base + ActorVtableOffset &&
+           Read(memory, actor + 0x260, name_pointer) && name_pointer != 0 &&
+           Read(memory, name_pointer, name) && std::memcmp(name.data(), "Player_Child", 13) == 0;
+}
+
+/// Reads the local Link. `pinned` keeps the first Link found: a second Player_Child created as a
+/// puppet takes over the pointer chains, and the local Link must stay the one already followed.
+std::optional<Player> ReadLink(Core::Memory::Memory& memory, u64 base, u64& pinned) {
+    if (pinned != 0 && !IsLink(memory, base, pinned)) {
+        pinned = 0;
+    }
     for (const Chain& chain : ActorChains) {
-        const auto actor = Follow(memory, base, chain);
+        auto actor = Follow(memory, base, chain);
+        if (pinned != 0) {
+            actor = pinned;
+        }
         u64 vtable;
         if (!actor || !Read(memory, *actor, vtable) || vtable != base + ActorVtableOffset) {
             continue;
         }
+        pinned = *actor;
         Player player{.valid = true};
         std::array<float, 9> rotation;
         if (!Read(memory, *actor + ActorPosition, player.position) ||
@@ -188,6 +235,7 @@ std::optional<Player> ReadLink(Core::Memory::Memory& memory, u64 base) {
         }
         // The third column is the actor's forward (+Z) axis.
         player.facing = {rotation[2], rotation[8]};
+        player.action = ReadAction(memory, *actor);
         return player;
     }
     return std::nullopt;
@@ -259,9 +307,12 @@ void Exchange(State& state, const Player& local) {
     if (state.peer && local.valid) {
         Packet packet{PacketMagic, ++state.sequence,
                       {local.position[0], local.position[1], local.position[2]},
-                      {local.facing[0], local.facing[1]}, {}};
+                      {local.facing[0], local.facing[1]}, {}, {}};
         const char* name = Env("EDEN_NX2_MP_NAME");
         std::strncpy(packet.name, name ? name : "P1", sizeof(packet.name) - 1);
+        std::strncpy(packet.action, local.action.c_str(), sizeof(packet.action) - 1);
+        packet.has_pad = local.has_pad ? 1 : 0;
+        std::memcpy(packet.pad, local.pad.data(), sizeof(packet.pad));
         state.socket->send_to(boost::asio::buffer(&packet, sizeof(packet)), *state.peer, 0, error);
     }
     for (;;) {
@@ -275,10 +326,14 @@ void Exchange(State& state, const Player& local) {
             continue;
         }
         packet.name[sizeof(packet.name) - 1] = '\0';
+        packet.action[sizeof(packet.action) - 1] = '\0';
         state.remote = {.valid = true,
                         .position = {packet.position[0], packet.position[1], packet.position[2]},
                         .facing = {packet.facing[0], packet.facing[1]},
+                        .action = packet.action,
                         .name = packet.name};
+        state.remote.has_pad = packet.has_pad != 0;
+        std::memcpy(state.remote.pad.data(), packet.pad, sizeof(packet.pad));
         state.remote_time = now;
     }
     if (now - state.remote_time > std::chrono::seconds{2}) {
@@ -303,6 +358,7 @@ u32 Branch(u64 from, u64 to) {
 
 // Puppet animation. The AS play call (main + 0x2022A0, what the AINB node ExecuteASPlay calls)
 // takes a 0x30-byte request: +0x00 actor, +0x08 AS name, +0x14 blend frames, +0x18 -1.0 -1.0,
+// +0x20 u8 1 = keep an AS of that name already playing,
 // +0x21 u8 (zero from the game; 0x5A marks ours), +0x28 node (may be null).
 // - A filter at its entry refuses requests for the puppet actor (control block + 8) that are not
 //   ours, so its own AI no longer drives its animations.
@@ -406,22 +462,30 @@ bool InstallAnimationHooks(Kernel::KProcess& process, u64 base) {
     return true;
 }
 
-/// Queues an AS for the puppet (index into the names: 0 Wait, 1 Move, 2 Jump): the dispatch hook
-/// plays it on the next game thread that passes there.
-void QueuePuppetAs(Kernel::KProcess& process, u64 base, u64 actor, int name) {
+/// Queues an AS for the puppet by name: the dispatch hook plays it on the next game thread that
+/// passes there. The name is copied to the scratch area (+ 0x80), rewritten only when it changes.
+void QueuePuppetAs(Kernel::KProcess& process, u64 base, u64 actor, const std::string& name,
+                   float blend) {
     u8* const scratch = process.GetMemory().GetPointerSilent(base + ScratchOffset);
-    if (scratch == nullptr) {
+    if (scratch == nullptr || name.empty() || name.size() >= 32) {
         return;
     }
+    char* const name_copy = reinterpret_cast<char*>(scratch + 0x80);
+    if (name != name_copy) {
+        std::memset(name_copy, 0, 32);
+        std::memcpy(name_copy, name.data(), name.size());
+    }
     std::array<u8, 0x30> request{};
-    const u64 name_address = base + NamesOffset + static_cast<u64>(name) * 0x10;
-    const float blend = 6.0f;
+    const u64 name_address = base + ScratchOffset + 0x80;
     const float unset = -1.0f;
     std::memcpy(request.data() + 0x00, &actor, 8);
     std::memcpy(request.data() + 0x08, &name_address, 8);
     std::memcpy(request.data() + 0x14, &blend, 4);
     std::memcpy(request.data() + 0x18, &unset, 4);
     std::memcpy(request.data() + 0x1C, &unset, 4);
+    // +0x20 = 1: the play call leaves an AS of the same name that is already playing alone,
+    // so asking every tick keeps it running instead of restarting it from its first frame.
+    request[0x20] = 1;
     request[0x21] = OurRequest;
     std::memcpy(scratch + 0x40, request.data(), request.size());
     const u64 pending = base + ScratchOffset + 0x40;
@@ -624,6 +688,116 @@ const std::string& PreferredPuppet() {
     return name;
 }
 
+/// EDEN_NX2_MP_INPUT=1: the puppet is a second Link driven by the remote player's controller
+/// (player 2) instead of drawn where the remote player is.
+bool InputMode() {
+    static const bool enabled = [] {
+        const char* value = Env("EDEN_NX2_MP_INPUT");
+        return value && std::strcmp(value, "1") == 0;
+    }();
+    return enabled;
+}
+
+// The game's player input update (main + 0x574AB0, run for each Link with the Link's input
+// object in x19, whose + 0x18 is the actor) reads the ControllerMgr's player controller
+// (x22 + 0xB0) at two places. For the puppet (control block + 8) it reads a copy of that
+// controller in the scratch area instead, whose state Lichii writes from the remote player's.
+constexpr std::array<u64, 2> InputLoadOffsets{0x574B44, 0x574F20};
+constexpr u32 InputLoadInstruction = 0xF9405AD4; // ldr x20, [x22, #0xb0]
+constexpr u64 InputCaveOffset = CaveOffset + 0x800;
+constexpr u64 ControllerMgrGot = 0x4C7EF30;
+constexpr u64 FakePadOffset = ScratchOffset + 0x200; // 0x1F0 bytes
+constexpr u64 PadSize = 0x1F0;
+constexpr u64 PadStateStart = 0x8;
+
+std::optional<u64> PlayerController(Core::Memory::Memory& memory, u64 base) {
+    u64 got;
+    u64 manager;
+    u64 controller;
+    if (!Read(memory, base + ControllerMgrGot, got) || !Read(memory, got, manager) ||
+        manager == 0 || !Read(memory, manager + 0xB0, controller) || controller == 0) {
+        return std::nullopt;
+    }
+    return controller;
+}
+
+bool InstallInputHook(Kernel::KProcess& process, u64 base) {
+    auto& memory = process.GetMemory();
+    const auto controller = PlayerController(memory, base);
+    u8* const fake = memory.GetPointerSilent(base + FakePadOffset);
+    if (!controller || fake == nullptr) {
+        return false;
+    }
+    // The copy starts as the real controller (its vtable and links stay valid); only its pad
+    // state is rewritten afterwards.
+    std::array<u8, PadSize> original;
+    if (!Read(memory, *controller, original)) {
+        return false;
+    }
+    std::memcpy(fake, original.data(), PadSize);
+    const u64 actor_slot = base + ControlOffset + 8;
+    const u64 fake_address = base + FakePadOffset;
+    for (size_t i = 0; i < InputLoadOffsets.size(); ++i) {
+        const u64 site = base + InputLoadOffsets[i];
+        const u64 cave = base + InputCaveOffset + i * 0x40;
+        u8* const site_host = memory.GetPointerSilent(site);
+        u8* const cave_host = memory.GetPointerSilent(cave);
+        u32 current;
+        if (!site_host || !cave_host) {
+            return false;
+        }
+        std::memcpy(&current, site_host, 4);
+        if (current != InputLoadInstruction) {
+            LOG_WARNING(Core, "Nx2 multiplayer: input load at {:#x} is {:#010x}, not patched", site,
+                        current);
+            return false;
+        }
+        const std::array<u32, 8> code{
+            InputLoadInstruction, // ldr x20, [x22, #0xb0]
+            0xF9400E70,           // ldr x16, [x19, #0x18] (the Link)
+            0x580000D1,           // ldr x17, =control block + 8 (literal at + 0x20)
+            0xF9400231,           // ldr x17, [x17] (the puppet)
+            0xEB11021F,           // cmp x16, x17
+            0x54000041,           // b.ne +8
+            0x58000094,           // ldr x20, =fake controller (literal at + 0x28)
+            Branch(cave + 0x1C, site + 4),
+        };
+        std::memcpy(cave_host, code.data(), sizeof(code));
+        std::memcpy(cave_host + 0x20, &actor_slot, sizeof(actor_slot));
+        std::memcpy(cave_host + 0x28, &fake_address, sizeof(fake_address));
+        Core::InvalidateInstructionCacheRange(&process, cave, 0x40);
+    }
+    for (size_t i = 0; i < InputLoadOffsets.size(); ++i) {
+        const u64 site = base + InputLoadOffsets[i];
+        const u32 jump = Branch(site, base + InputCaveOffset + i * 0x40);
+        std::memcpy(memory.GetPointerSilent(site), &jump, 4);
+        Core::InvalidateInstructionCacheRange(&process, site, 4);
+    }
+    LOG_INFO(Core, "Nx2 multiplayer: input hook installed (the puppet reads the remote controller)");
+    return true;
+}
+
+/// Reads the local player controller's pad state.
+void ReadLocalPad(Core::Memory::Memory& memory, u64 base, Player& local) {
+    const auto controller = PlayerController(memory, base);
+    local.has_pad = controller && Read(memory, *controller + PadStateStart, local.pad);
+}
+
+/// Writes the remote player's pad state into the puppet's controller (neutral when none).
+void WriteRemotePad(Core::Memory::Memory& memory, u64 base, const Player& remote) {
+    u8* const fake = memory.GetPointerSilent(base + FakePadOffset + PadStateStart);
+    if (fake == nullptr) {
+        return;
+    }
+    if (remote.valid && remote.has_pad) {
+        std::memcpy(fake, remote.pad.data(), remote.pad.size());
+    } else {
+        // Nothing held, triggered or released, sticks centred.
+        std::memset(fake + (0x10 - PadStateStart), 0, 0x10);
+        std::memset(fake + (0x120 - PadStateStart), 0, 0x10);
+    }
+}
+
 /// Keeps a puppet chosen: an actor named PreferredPuppet() if one exists, else the nearest actor
 /// 2 to 25 units from Link with a physics component, none of Link's own parts. While the puppet
 /// is not the preferred actor, the actors are scanned again every 5 s to find one (it may be
@@ -636,7 +810,8 @@ std::string UpdatePuppet(State& state, Kernel::KProcess& process, u64 base, cons
         return "puppet: no control block";
     }
     const auto set_component = [&](u64 component) {
-        std::memcpy(control, &component, sizeof(component));
+        const u64 drawn = InputMode() ? 0 : component;
+        std::memcpy(control, &drawn, sizeof(drawn));
         // The animation filter refuses the puppet actor's own AS requests.
         const u64 actor = component != 0 ? state.puppet_actor : 0;
         std::memcpy(control + 8, &actor, sizeof(actor));
@@ -696,7 +871,7 @@ std::string UpdatePuppet(State& state, Kernel::KProcess& process, u64 base, cons
     state.puppet_preferred = false;
     float farthest = -1.0f;
     for (const u64 actor : actors) {
-        if (NameOf(memory, actor) != PreferredPuppet()) {
+        if (actor == state.local_actor || NameOf(memory, actor) != PreferredPuppet()) {
             continue;
         }
         const auto component = ComponentOf(memory, actor);
@@ -748,30 +923,51 @@ std::string UpdatePuppet(State& state, Kernel::KProcess& process, u64 base, cons
 
 /// Plays Move while the remote player moves and Wait while it stands, on the puppet.
 void UpdatePuppetAnimation(State& state, Kernel::KProcess& process, u64 base, const Player& remote) {
+    auto& memory = process.GetMemory();
     const auto now = std::chrono::steady_clock::now();
     if (!remote.valid || state.puppet_actor == 0) {
-        state.puppet_as = -1;
+        state.puppet_as.clear();
         return;
     }
     const float dt = std::chrono::duration<float>(now - state.last_remote_time).count();
-    if (dt >= 0.1f) {
+    if (dt >= 0.05f) {
         float moved = 0;
         for (int i = 0; i < 3; ++i) {
             moved += (remote.position[i] - state.last_remote[i]) * (remote.position[i] - state.last_remote[i]);
         }
         const float speed = std::sqrt(moved) / dt;
-        // Eased, and a jump (scene change) does not count as running.
-        state.remote_speed = speed > 30.0f ? 0.0f : state.remote_speed * 0.5f + speed * 0.5f;
+        // A jump (scene change) does not count as running.
+        state.remote_speed = speed > 30.0f ? 0.0f : speed;
+        if (state.remote_speed > 0.6f) {
+            state.last_moving_time = now;
+        }
         state.last_remote = remote.position;
         state.last_remote_time = now;
     }
-    const int wanted = state.remote_speed > 0.8f ? 1 : 0;
+    // Raw speed both ways so the puppet starts and stops with the remote player; standing still
+    // only counts after 0.12 s, so a tick without a new packet does not stop the run.
+    const bool moving = now - state.last_moving_time < std::chrono::milliseconds(120);
+    // The remote Link's own AS when the peer sends it (the puppet shares Link's AS names), else
+    // Move or Wait from its motion.
+    const std::string wanted = !remote.action.empty() ? remote.action : moving ? "Move" : "Wait";
     if (wanted != state.puppet_as || state.puppet_as_actor != state.puppet_actor) {
-        QueuePuppetAs(process, base, state.puppet_actor, wanted);
-        LOG_INFO(Core, "Nx2 multiplayer: puppet plays {} (remote speed {:.1f})",
-                 wanted == 1 ? "Move" : "Wait", state.remote_speed);
+        LOG_INFO(Core, "Nx2 multiplayer: puppet plays {} (remote speed {:.1f})", wanted,
+                 state.remote_speed);
         state.puppet_as = wanted;
         state.puppet_as_actor = state.puppet_actor;
+        state.puppet_as_started = false;
+    }
+    // Loops (standing, moving, turning) are asked for every tick: the game's AS nodes request
+    // theirs again while they run, and a single request froze the pose. Anything else (attacks,
+    // rolls, jumps) only until the puppet plays it, or asking again restarts it when it ends.
+    const bool loop = wanted.find("Wait") != std::string::npos ||
+                      wanted.find("Move") != std::string::npos ||
+                      wanted.find("Turn") != std::string::npos;
+    if (!loop && !state.puppet_as_started && ReadAction(memory, state.puppet_actor) == wanted) {
+        state.puppet_as_started = true;
+    }
+    if (loop || !state.puppet_as_started) {
+        QueuePuppetAs(process, base, state.puppet_actor, wanted, wanted == "Wait" ? 6.0f : 3.0f);
     }
 }
 
@@ -825,15 +1021,17 @@ Frame Tick(Core::System& system) {
         state.process_id = process->GetProcessId();
         state.main_base = FindMainBase(*process);
         state.puppet_installed = false;
+        state.local_actor = 0;
         LOG_INFO(Core, "Nx2 multiplayer: main module at {:#x}", state.main_base);
         if (!state.socket && !state.ghost_mode) {
             SetUpNetwork(state);
         }
     }
     auto& memory = process->GetMemory();
-    const auto link = ReadLink(memory, state.main_base);
+    const auto link = ReadLink(memory, state.main_base, state.local_actor);
     if (link) {
         frame.local = *link;
+        ReadLocalPad(memory, state.main_base, frame.local);
     }
     Exchange(state, frame.local);
     frame.remote = state.remote;
@@ -841,11 +1039,22 @@ Frame Tick(Core::System& system) {
     if (Env("EDEN_NX2_MP_PUPPET")) {
         if (!state.puppet_installed) {
             state.puppet_installed = InstallPuppetDetour(*process, state.main_base);
+            state.input_hooked = false;
+        }
+        if (InputMode() && state.puppet_installed) {
+            if (!state.input_hooked) {
+                state.input_hooked = InstallInputHook(*process, state.main_base);
+            }
+            WriteRemotePad(memory, state.main_base, frame.remote);
         }
         if (state.puppet_installed && link) {
             WritePuppet(*process, state.main_base, frame.remote);
             puppet_status = UpdatePuppet(state, *process, state.main_base, *link, frame.remote);
-            UpdatePuppetAnimation(state, *process, state.main_base, frame.remote);
+            // Experiment switch: EDEN_NX2_MP_ANIM=0 leaves the puppet's animations alone.
+            const char* anim = Env("EDEN_NX2_MP_ANIM");
+            if (!anim || std::strcmp(anim, "0") != 0) {
+                UpdatePuppetAnimation(state, *process, state.main_base, frame.remote);
+            }
         }
     }
     frame.valid = link && ReadCamera(memory, state.main_base, *link, frame);

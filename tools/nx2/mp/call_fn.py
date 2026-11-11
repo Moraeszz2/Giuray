@@ -60,6 +60,13 @@ raw("G" + regs.hex())
 raw(f"Z0,{base + STOP:x},4")
 call(op="cont")
 back = call(op="wait", timeout=30).get("stop")
+# A second thread that hit a dispatch breakpoint with the first leaves a stale stop: our thread is
+# still at the function's entry then, so let it go on.
+for _ in range(5):
+    if not back or struct.unpack_from("<Q", bytes.fromhex(raw("g")), 32 * 8)[0] != base + function:
+        break
+    call(op="cont")
+    back = call(op="wait", timeout=30).get("stop")
 raw(f"z0,{base + STOP:x},4")
 if not back:
     print("the call did not return within 30 s")

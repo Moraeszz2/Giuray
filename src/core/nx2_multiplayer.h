@@ -5,6 +5,8 @@
 #include <array>
 #include <string>
 
+#include "common/common_types.h"
+
 namespace Core {
 class System;
 }
@@ -21,6 +23,13 @@ struct Player {
     std::array<float, 3> position{};
     /// Facing direction on the ground plane (X, Z), from the actor's rotation.
     std::array<float, 2> facing{};
+    /// The AS (animation sequence) Link plays, e.g. "Move" or "Rolling"; empty if unknown.
+    std::string action;
+    /// The game's player controller state (EDEN_NX2_MP_INPUT=1): bytes + 0x8 to + 0x140 of the
+    /// ControllerMgr's player controller (held, triggered and released buttons, repeat counters,
+    /// sticks). Empty when not read.
+    std::array<u8, 0x138> pad{};
+    bool has_pad{};
     std::string name;
 };
 
