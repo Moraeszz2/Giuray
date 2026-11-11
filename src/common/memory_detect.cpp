@@ -81,7 +81,15 @@ const MemoryInfo& GetMemInfo() {
 ProcessMemoryUsage GetProcessMemoryUsage() {
     ProcessMemoryUsage usage{};
 #ifdef _WIN32
+#ifdef __MINGW32__
+    // MinGW's psapi.h has no PROCESS_MEMORY_COUNTERS_EX2 (Windows 10 22H2 SDK); same layout.
+    struct : PROCESS_MEMORY_COUNTERS_EX {
+        SIZE_T PrivateWorkingSetSize;
+        ULONG64 SharedCommitUsage;
+    } counters{};
+#else
     PROCESS_MEMORY_COUNTERS_EX2 counters{};
+#endif
     counters.cb = sizeof(counters);
     if (GetProcessMemoryInfo(GetCurrentProcess(),
                              reinterpret_cast<PROCESS_MEMORY_COUNTERS*>(&counters),
