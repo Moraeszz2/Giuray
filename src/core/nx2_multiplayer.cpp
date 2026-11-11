@@ -69,6 +69,24 @@ struct Packet {
     float camera[2];
 };
 
+// Progress sync: Bool flags of the GameDataMgr that turned on, by their index in its Bool table
+// (the same on both sides: same game build), sent until acknowledged.
+constexpr u32 FlagMagic = 0x46544F4F; // "OOTF"
+constexpr u32 AckMagic = 0x41544F4F;  // "OOTA"
+constexpr size_t FlagsPerPacket = 120;
+
+struct FlagPacket {
+    u32 magic;
+    u32 sequence;
+    u32 count;
+    u16 indices[FlagsPerPacket];
+};
+
+struct AckPacket {
+    u32 magic;
+    u32 sequence;
+};
+
 struct State {
     u64 process_id = ~0ULL;
     u64 main_base = 0;
@@ -131,6 +149,15 @@ struct State {
     std::chrono::steady_clock::time_point last_stun{};
     std::string room_peer;
     bool restart_network = false; ///< StartRoom asked for a new socket and room.
+    // Progress sync (see SyncProgress).
+    u64 flag_entries = 0;
+    u32 flag_count = 0;
+    std::vector<u8> flag_values;
+    std::chrono::steady_clock::time_point last_flag_scan{};
+    std::chrono::steady_clock::time_point last_flag_send{};
+    u32 flag_sequence = 0;
+    std::deque<FlagPacket> unacked_flags;
+    std::vector<u16> incoming_flags;
 };
 
 /// The room code to host or join (EDEN_NX2_MP_ROOM), or nothing.
@@ -442,6 +469,28 @@ void Exchange(State& state, const Player& local) {
                 }
             }
             continue;
+        }
+        if (size == sizeof(FlagPacket) || size == sizeof(AckPacket)) {
+            u32 magic;
+            std::memcpy(&magic, datagram.data(), sizeof(magic));
+            if (magic == FlagMagic && size == sizeof(FlagPacket)) {
+                FlagPacket flags;
+                std::memcpy(&flags, datagram.data(), sizeof(flags));
+                const u32 count = (std::min)(flags.count, static_cast<u32>(FlagsPerPacket));
+                state.incoming_flags.insert(state.incoming_flags.end(), flags.indices,
+                                            flags.indices + count);
+                const AckPacket ack{AckMagic, flags.sequence};
+                state.socket->send_to(boost::asio::buffer(&ack, sizeof(ack)), from, 0, error);
+                continue;
+            }
+            if (magic == AckMagic && size == sizeof(AckPacket)) {
+                AckPacket ack;
+                std::memcpy(&ack, datagram.data(), sizeof(ack));
+                std::erase_if(state.unacked_flags, [&](const FlagPacket& sent) {
+                    return sent.sequence == ack.sequence;
+                });
+                continue;
+            }
         }
         Packet packet{};
         if (size != sizeof(packet)) {
@@ -969,6 +1018,100 @@ bool InstallInputHook(Kernel::KProcess& process, u64 base) {
 void ReadLocalPad(Core::Memory::Memory& memory, u64 base, Player& local) {
     const auto controller = PlayerController(memory, base);
     local.has_pad = controller && Read(memory, *controller + PadStateStart, local.pad);
+}
+
+// The GameDataMgr ([main + 0x4E842A8]) keeps one table per data type; the Bool table's head is at
+// + 0x8: entry count at + 0x10, entries at + 0x18. A Bool entry is 0x18 bytes: + 0xC is 1 once
+// the flag has been written, the value is at + 0x16 (and again at + 0x17). A scene writes its
+// objects' flags there when it is left and reads them when it loads.
+constexpr u64 GameDataMgrSlot = 0x4E842A8;
+constexpr u64 BoolEntrySize = 0x18;
+
+/// Progress sync (EDEN_NX2_MP_SYNC, on unless 0): every 250 ms the Bool flags that turned on are
+/// sent to the other player (by index, until acknowledged), and the ones received are turned on
+/// here. Only off -> on: progress does not go back, and scene-temporary flags that turn off
+/// again are not echoed. A flag of the scene a player stands in takes effect when it is entered
+/// again.
+void SyncProgress(State& state, Core::Memory::Memory& memory, u64 base) {
+    u64 manager;
+    u32 count;
+    u64 entries;
+    if (!Read(memory, base + GameDataMgrSlot, manager) || manager == 0 ||
+        !Read(memory, manager + 0x10, count) || !Read(memory, manager + 0x18, entries) ||
+        count == 0 || count > 0x10000 || entries == 0) {
+        return;
+    }
+    const auto value_of = [&](u32 index) {
+        const u8* const value = memory.GetPointerSilent(entries + index * BoolEntrySize + 0x16);
+        return value ? *value : u8{0};
+    };
+    if (entries != state.flag_entries || count != state.flag_count) {
+        // A new table (a game started or loaded): this player's own flags are the baseline.
+        state.flag_entries = entries;
+        state.flag_count = count;
+        state.flag_values.resize(count);
+        for (u32 i = 0; i < count; ++i) {
+            state.flag_values[i] = value_of(i);
+        }
+        state.incoming_flags.clear();
+        LOG_INFO(Core, "Nx2 multiplayer: progress sync follows {} Bool flags", count);
+        return;
+    }
+    // The other player's flags: turned on here, and known so they are not sent back.
+    for (const u16 index : state.incoming_flags) {
+        if (index >= count) {
+            continue;
+        }
+        const u64 entry = entries + index * BoolEntrySize;
+        u8* const written = memory.GetPointerSilent(entry + 0xC);
+        u8* const value = memory.GetPointerSilent(entry + 0x16);
+        if (written && value && *value == 0) {
+            *written = 1;
+            value[0] = 1;
+            value[1] = 1;
+        }
+        state.flag_values[index] = 1;
+    }
+    if (!state.incoming_flags.empty()) {
+        LOG_INFO(Core, "Nx2 multiplayer: {} flags from the other player",
+                 state.incoming_flags.size());
+        state.incoming_flags.clear();
+    }
+    const auto now = std::chrono::steady_clock::now();
+    if (now - state.last_flag_scan >= std::chrono::milliseconds{250}) {
+        state.last_flag_scan = now;
+        std::vector<u16> turned_on;
+        for (u32 i = 0; i < count; ++i) {
+            const u8 value = value_of(i);
+            if (value != 0 && state.flag_values[i] == 0) {
+                turned_on.push_back(static_cast<u16>(i));
+            }
+            state.flag_values[i] = value;
+        }
+        for (size_t at = 0; at < turned_on.size(); at += FlagsPerPacket) {
+            FlagPacket packet{FlagMagic, ++state.flag_sequence, 0, {}};
+            packet.count = static_cast<u32>((std::min)(FlagsPerPacket, turned_on.size() - at));
+            std::copy_n(turned_on.begin() + static_cast<std::ptrdiff_t>(at), packet.count,
+                        packet.indices);
+            state.unacked_flags.push_back(packet);
+        }
+        if (!turned_on.empty()) {
+            LOG_INFO(Core, "Nx2 multiplayer: {} flags turned on, sending", turned_on.size());
+        }
+        while (state.unacked_flags.size() > 64) {
+            state.unacked_flags.pop_front();
+        }
+    }
+    // Send what is not acknowledged yet, again every half second.
+    if (state.socket && state.peer && !state.unacked_flags.empty() &&
+        now - state.last_flag_send >= std::chrono::milliseconds{500}) {
+        state.last_flag_send = now;
+        boost::system::error_code error;
+        for (const FlagPacket& packet : state.unacked_flags) {
+            state.socket->send_to(boost::asio::buffer(&packet, sizeof(packet)), *state.peer, 0,
+                                  error);
+        }
+    }
 }
 
 /// The newest Link: a Player_Child created after the local one takes over Link's pointer chains.
@@ -1647,6 +1790,9 @@ Frame Tick(Core::System& system) {
         state.navi_requested = {};
         state.navi_born = {};
         state.navi_set_up = false;
+        state.flag_entries = 0;
+        state.unacked_flags.clear();
+        state.incoming_flags.clear();
         LOG_INFO(Core, "Nx2 multiplayer: main module at {:#x}", state.main_base);
         if (!state.socket && !state.ghost_mode) {
             SetUpNetwork(state);
@@ -1698,6 +1844,9 @@ Frame Tick(Core::System& system) {
     }
     Exchange(state, frame.local);
     frame.remote = state.remote;
+    if (const char* sync = Env("EDEN_NX2_MP_SYNC"); !sync || std::strcmp(sync, "0") != 0) {
+        SyncProgress(state, memory, state.main_base);
+    }
     std::string puppet_status;
     if (Env("EDEN_NX2_MP_PUPPET")) {
         if (!state.puppet_installed) {
