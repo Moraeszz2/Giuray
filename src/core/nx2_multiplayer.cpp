@@ -10,9 +10,9 @@
 #include <limits>
 #include <mutex>
 #include <optional>
-#include <thread>
 #include <span>
 #include <string>
+#include <thread>
 #include <vector>
 
 #include <boost/asio.hpp>
@@ -24,8 +24,8 @@
 #include "core/core.h"
 #include "core/hle/kernel/k_page_table.h"
 #include "core/hle/kernel/k_process.h"
-#include "core/hle/result.h"
 #include "core/hle/kernel/svc_types.h"
+#include "core/hle/result.h"
 #include "core/memory.h"
 #include "core/nx2_multiplayer.h"
 
@@ -43,9 +43,8 @@ struct Chain {
 // Found with the debug server's pointer_scan and checked across boots (actor: two boots and a
 // scene change; camera: one boot). Offsets are from the main module's first code page.
 const std::vector<Chain> ActorChains{
-    {0x4e98438, {0xb8, 0x40, 0x0}}, {0x4e6ba20, {0x78, 0x40, 0x0}},
-    {0x4e44480, {0x78, 0x40, 0x0}}, {0x4e43b68, {0x38, 0x40, 0x0}},
-    {0x4e21108, {0x340, 0x40, 0x0}}, {0x4e353b0, {0x78, 0x40, 0x0}},
+    {0x4e98438, {0xb8, 0x40, 0x0}}, {0x4e6ba20, {0x78, 0x40, 0x0}},  {0x4e44480, {0x78, 0x40, 0x0}},
+    {0x4e43b68, {0x38, 0x40, 0x0}}, {0x4e21108, {0x340, 0x40, 0x0}}, {0x4e353b0, {0x78, 0x40, 0x0}},
 };
 const std::vector<Chain> CameraChains{
     {0x4e21668, {0x3f0}}, {0x4e95568, {0x390}}, {0x4e93a30, {0x2e8}},
@@ -128,7 +127,8 @@ u64 FindMainBase(Kernel::KProcess& process) {
     for (int guard = 0; guard < 100000; ++guard) {
         Kernel::KMemoryInfo info{};
         Kernel::Svc::PageInfo page_info{};
-        if (R_FAILED(page_table.QueryInfo(std::addressof(info), std::addressof(page_info), address))) {
+        if (R_FAILED(
+                page_table.QueryInfo(std::addressof(info), std::addressof(page_info), address))) {
             return 0;
         }
         const auto svc = info.GetSvcMemoryInfo();
@@ -154,9 +154,10 @@ bool Read(Core::Memory::Memory& memory, u64 address, T& out) {
         if ((current >> 48) != 0) {
             return false;
         }
-        const size_t length = (std::min)(static_cast<size_t>(Core::Memory::YUZU_PAGESIZE -
-                                                             (current & Core::Memory::YUZU_PAGEMASK)),
-                                         sizeof(T) - offset);
+        const size_t length =
+            (std::min)(static_cast<size_t>(Core::Memory::YUZU_PAGESIZE -
+                                           (current & Core::Memory::YUZU_PAGEMASK)),
+                       sizeof(T) - offset);
         const u8* const source = memory.GetPointerSilent(current);
         if (source == nullptr) {
             return false;
@@ -272,7 +273,8 @@ void SetUpNetwork(State& state) {
         return;
     }
     const char* port_text = Env("EDEN_NX2_MP_PORT");
-    const unsigned short port = static_cast<unsigned short>(port_text ? std::atoi(port_text) : 7777);
+    const unsigned short port =
+        static_cast<unsigned short>(port_text ? std::atoi(port_text) : 7777);
     try {
         state.socket.emplace(state.io, udp::endpoint(udp::v4(), port));
         state.socket->non_blocking(true);
@@ -280,11 +282,13 @@ void SetUpNetwork(State& state) {
             const std::string text{peer};
             const auto colon = text.rfind(':');
             const std::string host = text.substr(0, colon);
-            const std::string peer_port = colon == std::string::npos ? "7777" : text.substr(colon + 1);
+            const std::string peer_port =
+                colon == std::string::npos ? "7777" : text.substr(colon + 1);
             udp::resolver resolver{state.io};
             state.peer = *resolver.resolve(udp::v4(), host, peer_port).begin();
         }
-        state.network_status = fmt::format("UDP {} -> {}", port, Env("EDEN_NX2_MP_PEER") ? Env("EDEN_NX2_MP_PEER") : "(no peer)");
+        state.network_status = fmt::format(
+            "UDP {} -> {}", port, Env("EDEN_NX2_MP_PEER") ? Env("EDEN_NX2_MP_PEER") : "(no peer)");
     } catch (const std::exception& error) {
         state.network_status = fmt::format("network error: {}", error.what());
         state.socket.reset();
@@ -309,9 +313,12 @@ void Exchange(State& state, const Player& local) {
     }
     boost::system::error_code error;
     if (state.peer && local.valid) {
-        Packet packet{PacketMagic, ++state.sequence,
+        Packet packet{PacketMagic,
+                      ++state.sequence,
                       {local.position[0], local.position[1], local.position[2]},
-                      {local.facing[0], local.facing[1]}, {}, {}};
+                      {local.facing[0], local.facing[1]},
+                      {},
+                      {}};
         const char* name = Env("EDEN_NX2_MP_NAME");
         std::strncpy(packet.name, name ? name : "P1", sizeof(packet.name) - 1);
         std::strncpy(packet.action, local.action.c_str(), sizeof(packet.action) - 1);
@@ -324,7 +331,8 @@ void Exchange(State& state, const Player& local) {
     for (;;) {
         Packet packet{};
         boost::asio::ip::udp::endpoint from;
-        const size_t size = state.socket->receive_from(boost::asio::buffer(&packet, sizeof(packet)), from, 0, error);
+        const size_t size = state.socket->receive_from(boost::asio::buffer(&packet, sizeof(packet)),
+                                                       from, 0, error);
         if (error || size != sizeof(packet)) {
             break;
         }
@@ -354,7 +362,7 @@ void Exchange(State& state, const Player& local) {
 // actor is drawn where the remote player is. The code and the control block live in the zero
 // padding at the end of the main module's .text; the guest only reads them.
 constexpr u64 GetterOffset = 0x136AA0;
-constexpr u32 GetterFirstInstruction = 0xF9412808; // ldr x8, [x0, #0x250]
+constexpr u32 GetterFirstInstruction = 0xF9412808;  // ldr x8, [x0, #0x250]
 constexpr u32 GetterSecondInstruction = 0x1E2E1001; // fmov s1, #1.0
 constexpr u64 CaveOffset = 0x3C46400;
 constexpr u64 ControlOffset = CaveOffset + 0x40; // u64 component, u64 pad, 3 rows of 4 floats
@@ -416,24 +424,24 @@ bool InstallAnimationHooks(Kernel::KProcess& process, u64 base) {
     // Two pending pointers at the start of the scratch area: an AS request (+ 0) for the play
     // call, and a position request (+ 8: physics holder, position, NaN) for the force-set call.
     const std::array<u32, 26> hook_code{
-        0xA9BC7BFD, // stp x29, x30, [sp, #-0x40]!
-        0xA90107E0, // stp x0, x1, [sp, #0x10]
-        0xA9020FE2, // stp x2, x3, [sp, #0x20]
-        0xA90323E4, // stp x4, x8, [sp, #0x30]
+        0xA9BC7BFD,                            // stp x29, x30, [sp, #-0x40]!
+        0xA90107E0,                            // stp x0, x1, [sp, #0x10]
+        0xA9020FE2,                            // stp x2, x3, [sp, #0x20]
+        0xA90323E4,                            // stp x4, x8, [sp, #0x30]
         Literal(hook + 0x10, hook + 0x68, 16), // ldr x16, scratch
-        0xAA1F03F1, // mov x17, xzr
-        0xF8F18200, // swpal x17, x0, [x16]
-        0xB4000040, // cbz x0, +8
+        0xAA1F03F1,                            // mov x17, xzr
+        0xF8F18200,                            // swpal x17, x0, [x16]
+        0xB4000040,                            // cbz x0, +8
         BranchLink(hook + 0x20, play),
         Literal(hook + 0x24, hook + 0x68, 16), // ldr x16, scratch
-        0x91002210, // add x16, x16, #8
-        0xAA1F03F1, // mov x17, xzr
-        0xF8F18209, // swpal x17, x9, [x16]
-        0xB40000C9, // cbz x9, +0x18
-        0xF9400120, // ldr x0, [x9]
-        0x91002121, // add x1, x9, #8
-        0x91005122, // add x2, x9, #0x14
-        0x52800023, // mov w3, #1
+        0x91002210,                            // add x16, x16, #8
+        0xAA1F03F1,                            // mov x17, xzr
+        0xF8F18209,                            // swpal x17, x9, [x16]
+        0xB40000C9,                            // cbz x9, +0x18
+        0xF9400120,                            // ldr x0, [x9]
+        0x91002121,                            // add x1, x9, #8
+        0x91005122,                            // add x2, x9, #0x14
+        0x52800023,                            // mov w3, #1
         BranchLink(hook + 0x48, base + ForceSetPositionOffset),
         0xA94323E4, // ldp x4, x8, [sp, #0x30]
         0xA9420FE2, // ldp x2, x3, [sp, #0x20]
@@ -444,16 +452,16 @@ bool InstallAnimationHooks(Kernel::KProcess& process, u64 base) {
         0,
     };
     const std::array<u32, 12> filter_code{
-        0xF9400010, // ldr x16, [x0]            (the request's actor)
+        0xF9400010,                                // ldr x16, [x0]            (the request's actor)
         Literal(filter + 0x04, filter + 0x40, 17), // ldr x17, control
-        0xF9400631, // ldr x17, [x17, #8]      (the puppet actor)
-        0xEB11021F, // cmp x16, x17
-        0x540000C1, // b.ne +24 (play it)
-        0x39408410, // ldrb w16, [x0, #0x21]
-        0x71016A1F, // cmp w16, #0x5a
-        0x54000060, // b.eq +12 (ours: play it)
-        0x2A1F03E0, // mov w0, wzr (the puppet's own AI: refused)
-        0xD65F03C0, // ret
+        0xF9400631,                                // ldr x17, [x17, #8]      (the puppet actor)
+        0xEB11021F,                                // cmp x16, x17
+        0x540000C1,                                // b.ne +24 (play it)
+        0x39408410,                                // ldrb w16, [x0, #0x21]
+        0x71016A1F,                                // cmp w16, #0x5a
+        0x54000060,                                // b.eq +12 (ours: play it)
+        0x2A1F03E0,                                // mov w0, wzr (the puppet's own AI: refused)
+        0xD65F03C0,                                // ret
         PlayFirstInstruction,
         Branch(filter + 0x2C, play + 4),
     };
@@ -511,7 +519,8 @@ void QueuePuppetAs(Kernel::KProcess& process, u64 base, u64 actor, const std::st
     request[0x21] = OurRequest;
     std::memcpy(scratch + 0x40, request.data(), request.size());
     const u64 pending = base + ScratchOffset + 0x40;
-    std::atomic_ref<u64>{*reinterpret_cast<u64*>(scratch)}.store(pending, std::memory_order_release);
+    std::atomic_ref<u64>{*reinterpret_cast<u64*>(scratch)}.store(pending,
+                                                                 std::memory_order_release);
 }
 
 bool InstallPuppetDetour(Kernel::KProcess& process, u64 base) {
@@ -566,7 +575,8 @@ bool InstallPuppetDetour(Kernel::KProcess& process, u64 base) {
         const u64 site_cave = cave + 0x80 + index * 0x40;
         u32 original = 0;
         if (!Read(memory, site, original) || original != 0x3DC02360) {
-            LOG_ERROR(Core, "Nx2 multiplayer: copy site {:#x} does not match this game build", site);
+            LOG_ERROR(Core, "Nx2 multiplayer: copy site {:#x} does not match this game build",
+                      site);
             return false;
         }
         const auto adr_x17 = [&](u64 at, u64 target) {
@@ -627,14 +637,13 @@ void WritePuppet(Kernel::KProcess& process, u64 base, const Player& remote) {
     }
     // Rows of a 3x4 world matrix turned about Y: its third column, the forward axis, is the facing.
     const std::array<float, 12> matrix{
-        fz,  0, fx, remote.position[0],
-        0,   1, 0,  remote.position[1],
-        -fx, 0, fz, remote.position[2],
+        fz, 0, fx, remote.position[0], 0, 1, 0, remote.position[1], -fx, 0, fz, remote.position[2],
     };
     std::memcpy(control + 16, matrix.data(), sizeof(matrix));
 }
 
-/// The physics component an actor's transform comes from: [[[[actor + 0x270] + 0x50] + 0x20] + 0x190].
+/// The physics component an actor's transform comes from: [[[[actor + 0x270] + 0x50] + 0x20] +
+/// 0x190].
 std::optional<u64> ComponentOf(Core::Memory::Memory& memory, u64 actor) {
     u64 node = actor;
     for (const u64 offset : {0x270ULL, 0x50ULL, 0x20ULL, 0x190ULL}) {
@@ -643,8 +652,8 @@ std::optional<u64> ComponentOf(Core::Memory::Memory& memory, u64 actor) {
         }
     }
     std::array<float, 12> matrix;
-    if (!Read(memory, node + 0x80, matrix) ||
-        !Sane({matrix[3], matrix[7], matrix[11]}) || std::fabs(matrix[5] - 1.0f) > 0.2f) {
+    if (!Read(memory, node + 0x80, matrix) || !Sane({matrix[3], matrix[7], matrix[11]}) ||
+        std::fabs(matrix[5] - 1.0f) > 0.2f) {
         return std::nullopt;
     }
     return node;
@@ -795,7 +804,8 @@ bool InstallInputHook(Kernel::KProcess& process, u64 base) {
         std::memcpy(memory.GetPointerSilent(site), &jump, 4);
         Core::InvalidateInstructionCacheRange(&process, site, 4);
     }
-    LOG_INFO(Core, "Nx2 multiplayer: input hook installed (the puppet reads the remote controller)");
+    LOG_INFO(Core,
+             "Nx2 multiplayer: input hook installed (the puppet reads the remote controller)");
     return true;
 }
 
@@ -807,7 +817,8 @@ void ReadLocalPad(Core::Memory::Memory& memory, u64 base, Player& local) {
 
 /// Moves the puppet's body to the remote player when the two have drifted apart: queues the
 /// game's physics teleport for the dispatch hook (scratch + 8, request at + 0xC0).
-void CorrectPuppetPosition(State& state, Kernel::KProcess& process, u64 base, const Player& remote) {
+void CorrectPuppetPosition(State& state, Kernel::KProcess& process, u64 base,
+                           const Player& remote) {
     auto& memory = process.GetMemory();
     const auto now = std::chrono::steady_clock::now();
     // Only a puppet made of the preferred actor (the second Link), never a fallback NPC.
@@ -853,9 +864,10 @@ void CorrectPuppetPosition(State& state, Kernel::KProcess& process, u64 base, co
     std::memcpy(scratch + 0xD4, &nan, 4);
     const u64 request = base + ScratchOffset + 0xC0;
     std::atomic_ref<u64>{*reinterpret_cast<u64*>(scratch + 8)}.store(request,
-                                                                    std::memory_order_release);
+                                                                     std::memory_order_release);
     state.last_correction = now;
-    LOG_DEBUG(Core, "Nx2 multiplayer: puppet moved {:.1f} to the remote player", std::sqrt(squared));
+    LOG_DEBUG(Core, "Nx2 multiplayer: puppet moved {:.1f} to the remote player",
+              std::sqrt(squared));
 }
 
 /// Writes the remote player's pad state into the puppet's controller (neutral when none). The
@@ -889,8 +901,8 @@ void WriteRemotePad(State& state, Core::Memory::Memory& memory, u64 base, const 
         const auto [lfx, lfz] = local_camera;
         float dx = wx;
         float dz = wz;
-        const auto component = state.puppet_actor ? ComponentOf(memory, state.puppet_actor)
-                                                  : std::nullopt;
+        const auto component =
+            state.puppet_actor ? ComponentOf(memory, state.puppet_actor) : std::nullopt;
         std::array<float, 12> body;
         if (std::hypot(wx, wz) < 0.1f && state.puppet_preferred && component &&
             Read(memory, *component + 0x80, body)) {
@@ -946,7 +958,8 @@ std::string UpdatePuppet(State& state, Kernel::KProcess& process, u64 base, cons
         generation = state.scan_generation;
     }
     const bool fresh_scan = generation != state.used_generation;
-    if (state.puppet_component != 0 && ComponentOf(memory, state.puppet_actor) == state.puppet_component &&
+    if (state.puppet_component != 0 &&
+        ComponentOf(memory, state.puppet_actor) == state.puppet_component &&
         distance(link.position, state.scan_origin) < 40.0f &&
         (state.puppet_preferred || !fresh_scan)) {
         if (!state.puppet_preferred && !state.scanning &&
@@ -1002,7 +1015,8 @@ std::string UpdatePuppet(State& state, Kernel::KProcess& process, u64 base, cons
         }
     }
     if (state.puppet_preferred) {
-        LOG_INFO(Core, "Nx2 multiplayer: puppet is {} {:#x} (component {:#x}), body {:.1f} from Link",
+        LOG_INFO(Core,
+                 "Nx2 multiplayer: puppet is {} {:#x} (component {:#x}), body {:.1f} from Link",
                  PreferredPuppet(), state.puppet_actor, state.puppet_component, farthest);
         set_component(state.puppet_component);
         return fmt::format("puppet: {} {:#x}", PreferredPuppet(), state.puppet_actor);
@@ -1036,7 +1050,8 @@ std::string UpdatePuppet(State& state, Kernel::KProcess& process, u64 base, cons
 }
 
 /// Plays Move while the remote player moves and Wait while it stands, on the puppet.
-void UpdatePuppetAnimation(State& state, Kernel::KProcess& process, u64 base, const Player& remote) {
+void UpdatePuppetAnimation(State& state, Kernel::KProcess& process, u64 base,
+                           const Player& remote) {
     auto& memory = process.GetMemory();
     const auto now = std::chrono::steady_clock::now();
     if (!remote.valid || state.puppet_actor == 0) {
@@ -1047,7 +1062,8 @@ void UpdatePuppetAnimation(State& state, Kernel::KProcess& process, u64 base, co
     if (dt >= 0.05f) {
         float moved = 0;
         for (int i = 0; i < 3; ++i) {
-            moved += (remote.position[i] - state.last_remote[i]) * (remote.position[i] - state.last_remote[i]);
+            moved += (remote.position[i] - state.last_remote[i]) *
+                     (remote.position[i] - state.last_remote[i]);
         }
         const float speed = std::sqrt(moved) / dt;
         // A jump (scene change) does not count as running.

@@ -2,21 +2,21 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include <algorithm>
-#include <unordered_map>
 #include <atomic>
 #include <bit>
 #include <charconv>
 #include <chrono>
 #include <cmath>
-#include <limits>
 #include <cstdlib>
 #include <cstring>
 #include <filesystem>
 #include <fstream>
 #include <future>
 #include <iterator>
+#include <limits>
 #include <numeric>
 #include <thread>
+#include <unordered_map>
 
 #include "common/fs/path_util.h"
 #include "common/scope_exit.h"
@@ -604,8 +604,8 @@ json WriteMemory(ToolState& state, const json& params, const ClientGone& client_
     }
     Memory::Memory& memory = Application(state).GetMemory();
     if (!memory.IsValidVirtualAddressRange(address, bytes.size())) {
-        throw std::runtime_error{fmt::format("guest range {:#x} + {} is not mapped", address,
-                                             bytes.size())};
+        throw std::runtime_error{
+            fmt::format("guest range {:#x} + {} is not mapped", address, bytes.size())};
     }
     const u64 frames = Param<u64>(params, "frames", 0, 0, MAX_INPUT_FRAMES);
     memory.WriteBlock(address, bytes.data(), bytes.size());
@@ -695,7 +695,8 @@ json PointerScan(ToolState& state, const json& params) {
     json chains = json::array();
     size_t visited = 1;
     bool capped = false;
-    for (int depth = 1; depth <= max_depth && !level.empty() && chains.size() < max_chains; ++depth) {
+    for (int depth = 1; depth <= max_depth && !level.empty() && chains.size() < max_chains;
+         ++depth) {
         std::vector<u64> upper;
         for (const u64 node : level) {
             const u64 low = node >= max_offset ? node - max_offset : 0;
@@ -714,7 +715,8 @@ json PointerScan(ToolState& state, const json& params) {
                         offsets.push_back(HexAddress(offset));
                         at = to;
                     }
-                    chains.push_back({{"base", HexAddress(holder)}, {"offsets", std::move(offsets)}});
+                    chains.push_back(
+                        {{"base", HexAddress(holder)}, {"offsets", std::move(offsets)}});
                     if (chains.size() >= max_chains) {
                         break;
                     }
@@ -776,8 +778,10 @@ json ScanMemory(ToolState& state, const json& params) {
         }
         const u64 bytes = scan->page_bytes.size();
         state.scan = std::move(scan);
-        return {{"pages", state.scan->page_addresses.size()}, {"bytes", bytes},
-                {"start", HexAddress(start)}, {"end", HexAddress(start + size)}};
+        return {{"pages", state.scan->page_addresses.size()},
+                {"bytes", bytes},
+                {"start", HexAddress(start)},
+                {"end", HexAddress(start + size)}};
     }
     if (op != "filter") {
         throw std::runtime_error{fmt::format("op \"{}\": want start, filter or clear", op)};
@@ -810,7 +814,8 @@ json ScanMemory(ToolState& state, const json& params) {
             if (mode == "any") {
                 return true;
             }
-            throw std::runtime_error{fmt::format("mode \"{}\" for u32: want changed, unchanged, equal or any", mode)};
+            throw std::runtime_error{
+                fmt::format("mode \"{}\" for u32: want changed, unchanged, equal or any", mode)};
         }
         const float before = before_float;
         const float now = now_float;
@@ -833,8 +838,8 @@ json ScanMemory(ToolState& state, const json& params) {
         if (mode == "any") {
             return true;
         }
-        throw std::runtime_error{fmt::format(
-            "mode \"{}\": want changed, unchanged, increased, decreased or any", mode)};
+        throw std::runtime_error{
+            fmt::format("mode \"{}\": want changed, unchanged, increased, decreased or any", mode)};
     };
     ToolState::FloatScan& scan = *state.scan;
     std::vector<u64> addresses;
@@ -886,7 +891,8 @@ json ScanMemory(ToolState& state, const json& params) {
         if (integer) {
             value = std::bit_cast<u32>(scan.values[index]);
         }
-        shown.push_back({{"address", HexAddress(scan.addresses[index])}, {"value", std::move(value)}});
+        shown.push_back(
+            {{"address", HexAddress(scan.addresses[index])}, {"value", std::move(value)}});
     }
     return {{"count", scan.addresses.size()}, {"candidates", std::move(shown)}};
 }
