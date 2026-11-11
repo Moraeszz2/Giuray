@@ -7,6 +7,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <deque>
+#include <limits>
 #include <mutex>
 #include <optional>
 #include <thread>
@@ -63,6 +64,7 @@ struct Packet {
     char action[32];
     u8 has_pad;
     u8 pad[0x138];
+    float camera[2];
 };
 
 struct State {
@@ -94,6 +96,8 @@ struct State {
     u64 puppet_as_actor = 0;
     u64 local_actor = 0;
     bool input_hooked = false;
+    std::chrono::steady_clock::time_point last_correction{};
+    std::chrono::steady_clock::time_point drift_since{};
     bool puppet_as_started = false;
     std::array<float, 3> last_remote{};
     std::chrono::steady_clock::time_point last_remote_time{};
@@ -313,6 +317,8 @@ void Exchange(State& state, const Player& local) {
         std::strncpy(packet.action, local.action.c_str(), sizeof(packet.action) - 1);
         packet.has_pad = local.has_pad ? 1 : 0;
         std::memcpy(packet.pad, local.pad.data(), sizeof(packet.pad));
+        packet.camera[0] = local.camera[0];
+        packet.camera[1] = local.camera[1];
         state.socket->send_to(boost::asio::buffer(&packet, sizeof(packet)), *state.peer, 0, error);
     }
     for (;;) {
@@ -334,6 +340,7 @@ void Exchange(State& state, const Player& local) {
                         .name = packet.name};
         state.remote.has_pad = packet.has_pad != 0;
         std::memcpy(state.remote.pad.data(), packet.pad, sizeof(packet.pad));
+        state.remote.camera = {packet.camera[0], packet.camera[1]};
         state.remote_time = now;
     }
     if (now - state.remote_time > std::chrono::seconds{2}) {
@@ -372,6 +379,9 @@ constexpr u32 DispatchInstruction = 0xD63F0100; // blr x8
 constexpr u64 HookCaveOffset = CaveOffset + 0x600;
 constexpr u64 FilterCaveOffset = CaveOffset + 0x680;
 constexpr u64 NamesOffset = CaveOffset + 0x700; // "Wait", "Move", "Jump", 16 bytes apart
+// The physics teleport ExecuteActorForceSetPos calls: (actor's [+ 0x270] + 0x50, &position,
+// &rotation NaN, 1).
+constexpr u64 ForceSetPositionOffset = 0x4C6630;
 constexpr u64 ScratchOffset = 0x4E9A500; // pending request pointer, request at + 0x40
 constexpr u8 OurRequest = 0x5A;
 
@@ -403,22 +413,34 @@ bool InstallAnimationHooks(Kernel::KProcess& process, u64 base) {
         LOG_ERROR(Core, "Nx2 multiplayer: the animation hooks do not match this game build");
         return false;
     }
-    const std::array<u32, 16> hook_code{
+    // Two pending pointers at the start of the scratch area: an AS request (+ 0) for the play
+    // call, and a position request (+ 8: physics holder, position, NaN) for the force-set call.
+    const std::array<u32, 26> hook_code{
         0xA9BC7BFD, // stp x29, x30, [sp, #-0x40]!
         0xA90107E0, // stp x0, x1, [sp, #0x10]
         0xA9020FE2, // stp x2, x3, [sp, #0x20]
         0xA90323E4, // stp x4, x8, [sp, #0x30]
-        Literal(hook + 0x10, hook + 0x40, 16), // ldr x16, scratch
+        Literal(hook + 0x10, hook + 0x68, 16), // ldr x16, scratch
         0xAA1F03F1, // mov x17, xzr
         0xF8F18200, // swpal x17, x0, [x16]
         0xB4000040, // cbz x0, +8
         BranchLink(hook + 0x20, play),
+        Literal(hook + 0x24, hook + 0x68, 16), // ldr x16, scratch
+        0x91002210, // add x16, x16, #8
+        0xAA1F03F1, // mov x17, xzr
+        0xF8F18209, // swpal x17, x9, [x16]
+        0xB40000C9, // cbz x9, +0x18
+        0xF9400120, // ldr x0, [x9]
+        0x91002121, // add x1, x9, #8
+        0x91005122, // add x2, x9, #0x14
+        0x52800023, // mov w3, #1
+        BranchLink(hook + 0x48, base + ForceSetPositionOffset),
         0xA94323E4, // ldp x4, x8, [sp, #0x30]
         0xA9420FE2, // ldp x2, x3, [sp, #0x20]
         0xA94107E0, // ldp x0, x1, [sp, #0x10]
         0xA8C47BFD, // ldp x29, x30, [sp], #0x40
         DispatchInstruction,
-        Branch(hook + 0x38, dispatch + 4),
+        Branch(hook + 0x60, dispatch + 4),
         0,
     };
     const std::array<u32, 12> filter_code{
@@ -444,7 +466,7 @@ bool InstallAnimationHooks(Kernel::KProcess& process, u64 base) {
         return false;
     }
     std::memcpy(hook_host, hook_code.data(), sizeof(hook_code));
-    std::memcpy(hook_host + 0x40, &scratch, sizeof(scratch));
+    std::memcpy(hook_host + 0x68, &scratch, sizeof(scratch));
     std::memcpy(filter_host, filter_code.data(), sizeof(filter_code));
     std::memcpy(filter_host + 0x40, &control, sizeof(control));
     std::memcpy(names_host + 0x00, "Wait", 5);
@@ -783,14 +805,106 @@ void ReadLocalPad(Core::Memory::Memory& memory, u64 base, Player& local) {
     local.has_pad = controller && Read(memory, *controller + PadStateStart, local.pad);
 }
 
-/// Writes the remote player's pad state into the puppet's controller (neutral when none).
-void WriteRemotePad(Core::Memory::Memory& memory, u64 base, const Player& remote) {
+/// Moves the puppet's body to the remote player when the two have drifted apart: queues the
+/// game's physics teleport for the dispatch hook (scratch + 8, request at + 0xC0).
+void CorrectPuppetPosition(State& state, Kernel::KProcess& process, u64 base, const Player& remote) {
+    auto& memory = process.GetMemory();
+    const auto now = std::chrono::steady_clock::now();
+    // Only a puppet made of the preferred actor (the second Link), never a fallback NPC.
+    if (!remote.valid || state.puppet_actor == 0 || !state.puppet_preferred ||
+        now - state.last_correction < std::chrono::milliseconds(500)) {
+        return;
+    }
+    const auto component = ComponentOf(memory, state.puppet_actor);
+    std::array<float, 12> body;
+    u64 table;
+    u64 physics;
+    if (!component || !Read(memory, *component + 0x80, body) ||
+        !Read(memory, state.puppet_actor + 0x270, table) || table == 0 ||
+        !Read(memory, table + 0x50, physics) || physics == 0) {
+        return;
+    }
+    float squared = 0;
+    const std::array<float, 3> position{body[3], body[7], body[11]};
+    for (int i = 0; i < 3; ++i) {
+        squared += (position[i] - remote.position[i]) * (position[i] - remote.position[i]);
+    }
+    // Small drift is walked off (WriteRemotePad steers); a teleport only for a drift over 3
+    // units that lasts a second (stuck, fallen), never for another area (a scene loading).
+    if (squared < 3.0f * 3.0f || squared > 60.0f * 60.0f) {
+        state.drift_since = {};
+        return;
+    }
+    if (state.drift_since == std::chrono::steady_clock::time_point{}) {
+        state.drift_since = now;
+    }
+    if (now - state.drift_since < std::chrono::seconds{1}) {
+        return;
+    }
+    state.drift_since = {};
+    u8* const scratch = memory.GetPointerSilent(base + ScratchOffset);
+    if (scratch == nullptr ||
+        std::atomic_ref<u64>{*reinterpret_cast<u64*>(scratch + 8)}.load() != 0) {
+        return;
+    }
+    const float nan = std::numeric_limits<float>::quiet_NaN();
+    std::memcpy(scratch + 0xC0, &physics, 8);
+    std::memcpy(scratch + 0xC8, remote.position.data(), 12);
+    std::memcpy(scratch + 0xD4, &nan, 4);
+    const u64 request = base + ScratchOffset + 0xC0;
+    std::atomic_ref<u64>{*reinterpret_cast<u64*>(scratch + 8)}.store(request,
+                                                                    std::memory_order_release);
+    state.last_correction = now;
+    LOG_DEBUG(Core, "Nx2 multiplayer: puppet moved {:.1f} to the remote player", std::sqrt(squared));
+}
+
+/// Writes the remote player's pad state into the puppet's controller (neutral when none). The
+/// left stick is turned from the remote camera to the local one, so the puppet walks the same way
+/// in the world; while the remote stick rests and the puppet stands up to 3 units off, the stick
+/// walks it back to the remote player's position.
+void WriteRemotePad(State& state, Core::Memory::Memory& memory, u64 base, const Player& remote,
+                    const Frame& frame) {
     u8* const fake = memory.GetPointerSilent(base + FakePadOffset + PadStateStart);
     if (fake == nullptr) {
         return;
     }
     if (remote.valid && remote.has_pad) {
         std::memcpy(fake, remote.pad.data(), remote.pad.size());
+        constexpr size_t Stick = 0x120 - PadStateStart;
+        std::array<float, 2> stick;
+        std::memcpy(stick.data(), fake + Stick, sizeof(stick));
+        // Stick y runs along the camera's forward (fx, fz), stick x along (-fz, fx).
+        const auto [rfx, rfz] = remote.camera;
+        const float wx = stick[1] * rfx - stick[0] * rfz;
+        const float wz = stick[1] * rfz + stick[0] * rfx;
+        std::array<float, 2> local_camera{0.0f, 1.0f};
+        if (frame.valid) {
+            const float cx = frame.at[0] - frame.eye[0];
+            const float cz = frame.at[2] - frame.eye[2];
+            const float length = std::sqrt(cx * cx + cz * cz);
+            if (length > 1e-3f) {
+                local_camera = {cx / length, cz / length};
+            }
+        }
+        const auto [lfx, lfz] = local_camera;
+        float dx = wx;
+        float dz = wz;
+        const auto component = state.puppet_actor ? ComponentOf(memory, state.puppet_actor)
+                                                  : std::nullopt;
+        std::array<float, 12> body;
+        if (std::hypot(wx, wz) < 0.1f && state.puppet_preferred && component &&
+            Read(memory, *component + 0x80, body)) {
+            const float ox = remote.position[0] - body[3];
+            const float oz = remote.position[2] - body[11];
+            const float distance = std::hypot(ox, oz);
+            if (distance > 0.5f && distance <= 3.0f) {
+                const float strength = (std::min)(1.0f, distance / 1.5f);
+                dx = ox / distance * strength;
+                dz = oz / distance * strength;
+            }
+        }
+        stick = {dx * -lfz + dz * lfx, dx * lfx + dz * lfz};
+        std::memcpy(fake + Stick, stick.data(), sizeof(stick));
     } else {
         // Nothing held, triggered or released, sticks centred.
         std::memset(fake + (0x10 - PadStateStart), 0, 0x10);
@@ -1033,6 +1147,15 @@ Frame Tick(Core::System& system) {
         frame.local = *link;
         ReadLocalPad(memory, state.main_base, frame.local);
     }
+    frame.valid = link && ReadCamera(memory, state.main_base, *link, frame);
+    if (frame.valid) {
+        const float cx = frame.at[0] - frame.eye[0];
+        const float cz = frame.at[2] - frame.eye[2];
+        const float length = std::sqrt(cx * cx + cz * cz);
+        if (length > 1e-3f) {
+            frame.local.camera = {cx / length, cz / length};
+        }
+    }
     Exchange(state, frame.local);
     frame.remote = state.remote;
     std::string puppet_status;
@@ -1045,7 +1168,8 @@ Frame Tick(Core::System& system) {
             if (!state.input_hooked) {
                 state.input_hooked = InstallInputHook(*process, state.main_base);
             }
-            WriteRemotePad(memory, state.main_base, frame.remote);
+            WriteRemotePad(state, memory, state.main_base, frame.remote, frame);
+            CorrectPuppetPosition(state, *process, state.main_base, frame.remote);
         }
         if (state.puppet_installed && link) {
             WritePuppet(*process, state.main_base, frame.remote);
@@ -1057,7 +1181,6 @@ Frame Tick(Core::System& system) {
             }
         }
     }
-    frame.valid = link && ReadCamera(memory, state.main_base, *link, frame);
     frame.status = fmt::format("multiplayer: {} | Link {} | camera {} | remote {}{}{}",
                                state.network_status, link ? "ok" : "not found",
                                frame.valid ? "ok" : "not found", frame.remote.valid ? "ok" : "none",

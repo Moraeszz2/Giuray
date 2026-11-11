@@ -30,6 +30,8 @@ struct Player {
     /// sticks). Empty when not read.
     std::array<u8, 0x138> pad{};
     bool has_pad{};
+    /// The player's camera forward direction on the ground plane (X, Z): sticks are relative to it.
+    std::array<float, 2> camera{0.0f, 1.0f};
     std::string name;
 };
 
