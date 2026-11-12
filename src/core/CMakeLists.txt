@@ -49,12 +49,26 @@ add_library(core STATIC
     debugger/nx2_debug_server.cpp
     debugger/nx2_debug_server.h
     debugger/nx2_debug_tools.cpp
-    nx2_multiplayer.cpp
-    nx2_multiplayer.h
-    nx2_upnp.cpp
-    nx2_room.cpp
-    nx2_room.h
-    nx2_upnp.h
+    nx2_multiplayer/code.cpp
+    nx2_multiplayer/code.h
+    nx2_multiplayer/guest.cpp
+    nx2_multiplayer/guest.h
+    nx2_multiplayer/layout.h
+    nx2_multiplayer/multiplayer.cpp
+    nx2_multiplayer/multiplayer.h
+    nx2_multiplayer/navis.cpp
+    nx2_multiplayer/navis.h
+    nx2_multiplayer/network.cpp
+    nx2_multiplayer/network.h
+    nx2_multiplayer/patches.cpp
+    nx2_multiplayer/patches.h
+    nx2_multiplayer/progress.cpp
+    nx2_multiplayer/progress.h
+    nx2_multiplayer/remote_links.cpp
+    nx2_multiplayer/remote_links.h
+    nx2_multiplayer/room.cpp
+    nx2_multiplayer/room.h
+    nx2_multiplayer/state.h
     debugger/nx2_debug_tools.h
     device_memory.cpp
     device_memory.h

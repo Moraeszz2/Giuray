@@ -14,17 +14,11 @@ endif()
 
 find_package(Qt6 REQUIRED COMPONENTS Widgets)
 
-if(YUZU_TESTS)
-    add_subdirectory(../tests/qt_compatibility ${CMAKE_BINARY_DIR}/qt_compatibility_tests)
-endif()
-
 add_executable(yuzu
     Info.plist
     about_dialog.cpp
     about_dialog.h
     aboutdialog.ui
-    compatibility_report.cpp
-    compatibility_report.h
     applets/qt_amiibo_settings.cpp
     applets/qt_amiibo_settings.h
     applets/qt_amiibo_settings.ui
@@ -169,7 +163,9 @@ add_executable(yuzu
     game/game_grid.cpp game/game_grid.h
 
     game/game_tree.h game/game_tree.cpp
+    game/library_delegate.h game/library_delegate.cpp
     game/game_card.h game/game_card.cpp
+    game/game_hero.h game/game_hero.cpp
     game/search_field.h game/search_field.cpp
 
     hotkeys.cpp
@@ -215,6 +211,8 @@ add_executable(yuzu
     util/clickable_label.h
     util/controller_navigation.cpp
     util/controller_navigation.h
+    util/nav_sidebar.cpp
+    util/nav_sidebar.h
     util/limitable_input_dialog.cpp
     util/limitable_input_dialog.h
     util/overlay_dialog.cpp
@@ -259,10 +257,10 @@ add_executable(yuzu
     game/carousel.h game/carousel.cpp
 )
 
-set_target_properties(yuzu PROPERTIES OUTPUT_NAME "lichii")
+set_target_properties(yuzu PROPERTIES OUTPUT_NAME "giuray")
 
 # Shipped next to the executable: the NX2 switches a GUI launch cannot set another way. Read at
-# startup (LoadNx2Switches in main.cpp); a user copy in %APPDATA%\lichii overrides it.
+# startup (LoadNx2Switches in main.cpp); a user copy in %APPDATA%\giuray overrides it.
 add_custom_command(TARGET yuzu POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
         "${PROJECT_SOURCE_DIR}/dist/nx2_switches.txt" "$<TARGET_FILE_DIR:yuzu>/nx2_switches.txt"
@@ -387,12 +385,12 @@ target_sources(yuzu
 if (APPLE)
     target_sources(yuzu PRIVATE util/macos_sleep.cpp util/macos_sleep.h)
 
-    # Use the supplied Lichii artwork for all macOS generators.
+    # Use the supplied Giuray artwork for all macOS generators.
     set(_dist "${CMAKE_SOURCE_DIR}/dist")
-    set(_icons "${_dist}/lichii.icns")
+    set(_icons "${_dist}/giuray.icns")
     if (CMAKE_GENERATOR MATCHES "Xcode")
         set_target_properties(yuzu PROPERTIES
-            MACOSX_BUNDLE_ICON_FILE lichii.icns
+            MACOSX_BUNDLE_ICON_FILE giuray.icns
             # Also force xcode to manage signing for us.
             XCODE_ATTRIBUTE_CODE_SIGNING_REQUIRED ON
             XCODE_ATTRIBUTE_CODE_SIGNING_ALLOWED ON)
@@ -504,7 +502,7 @@ target_link_libraries(yuzu PRIVATE OpenSSL::SSL OpenSSL::Crypto SDL3::SDL3)
 if (TARGET nxformat::nxformat)
     target_sources(yuzu PRIVATE nx_tools.h nx_tools.cpp)
     target_link_libraries(yuzu PRIVATE nxformat::nxformat)
-    target_compile_definitions(yuzu PRIVATE LICHII_NX_TOOLS)
+    target_compile_definitions(yuzu PRIVATE GIURAY_NX_TOOLS)
     if (MSVC)
         # Windows may refuse to load the unsigned DLL (Smart App Control, code integrity
         # policies); delay-loaded, only the NX tools are lost, and NxTools::LoadNxformat says so.
@@ -512,10 +510,10 @@ if (TARGET nxformat::nxformat)
         target_link_libraries(yuzu PRIVATE delayimp)
     endif()
 endif()
-if (LICHII_NXFORMAT_RUNTIME)
+if (GIURAY_NXFORMAT_RUNTIME)
     add_custom_command(TARGET yuzu POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            "${LICHII_NXFORMAT_RUNTIME}" "$<TARGET_FILE_DIR:yuzu>")
+            "${GIURAY_NXFORMAT_RUNTIME}" "$<TARGET_FILE_DIR:yuzu>")
     if (APPLE)
         # The copy is beside the executable in Contents/MacOS; the build path recorded for the
         # imported library doesn't exist on a user's Mac.
@@ -526,8 +524,8 @@ if (LICHII_NXFORMAT_RUNTIME)
         # library.
         include(GNUInstallDirs)
         set_property(TARGET yuzu APPEND PROPERTY BUILD_RPATH "\$ORIGIN")
-        set_property(TARGET yuzu APPEND PROPERTY INSTALL_RPATH "\$ORIGIN/../${CMAKE_INSTALL_LIBDIR}/lichii")
-        install(FILES "${LICHII_NXFORMAT_RUNTIME}" DESTINATION "${CMAKE_INSTALL_LIBDIR}/lichii")
+        set_property(TARGET yuzu APPEND PROPERTY INSTALL_RPATH "\$ORIGIN/../${CMAKE_INSTALL_LIBDIR}/giuray")
+        install(FILES "${GIURAY_NXFORMAT_RUNTIME}" DESTINATION "${CMAKE_INSTALL_LIBDIR}/giuray")
     endif()
 endif()
 

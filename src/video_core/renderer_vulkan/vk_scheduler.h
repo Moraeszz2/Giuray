@@ -65,7 +65,7 @@ public:
                 std::source_location location = std::source_location::current());
 
     /// On the split GPU thread, a fence or a command list copy submits only if the last
-    /// submission is older than a window (EDEN_NX2_FENCE_FLUSH_US, default 500 us, 0 submits at
+    /// submission is older than a window (GIURAY_NX2_FENCE_FLUSH_US, default 500 us, 0 submits at
     /// once); otherwise it goes with the next one. The back submits deferred work before it
     /// sleeps and when another thread asks (WaitSubmitted). True when the flush was deferred.
     bool DeferFlush();
@@ -85,7 +85,7 @@ public:
     void WaitWorker();
 
     enum class FrameMark : u8 { None, Start, End, Both };
-    /// GPU thread, once per present: the frame-end mark this present gets. EDEN_DKB_FRAME_TRACE
+    /// GPU thread, once per present: the frame-end mark this present gets. GIURAY_DKB_FRAME_TRACE
     /// marks every present; otherwise only the two presents after RequestGpuBusySample.
     [[nodiscard]] FrameMark NextFrameMark();
     void MarkFrameEnd(u64 frame, FrameMark mark);

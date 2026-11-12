@@ -28,8 +28,8 @@ not been proven for this LLE path. The RGBA16F menu/DLAA path also requires alph
 that the Fire Emblem contract does not provide. Turning on NVIDIA DLSS does not override
 these safety checks and is not evidence of a Fast Fusion visual fix.
 
-For a diagnostic run, `EDEN_NX2_DLSS_CONTRACT_TRACE=1` logs at most 24 matching Fast Fusion
-dispatches per compute engine. `EDEN_NX2_DLSS_CONTRACT_SKIP=N` skips the first N matching
+For a diagnostic run, `GIURAY_NX2_DLSS_CONTRACT_TRACE=1` logs at most 24 matching Fast Fusion
+dispatches per compute engine. `GIURAY_NX2_DLSS_CONTRACT_SKIP=N` skips the first N matching
 dispatches, capped at one million. Logs include exact shader identity, QMD launch dimensions,
 bounded constant-buffer words and raw texture descriptors. They contain guest addresses
 and should remain private. No shaders are skipped or game files changed by this capture.
@@ -42,7 +42,7 @@ Vulkan GPU, or NVIDIA DLSS on Windows. The **Use AMD FSR 3.1 upscaling in Ocarin
 setting (`ocarina_fsr`) is off by default. NVIDIA DLSS takes precedence when its setting is
 enabled and the runtime is available; FSR runs only when its own setting is on, so without it
 the game keeps its own pass whenever DLSS is off, unavailable or fails to start.
-`EDEN_NX2_DLSS_REPLACEMENT=fsr` explicitly enables FSR; `native` disables both replacements;
+`GIURAY_NX2_DLSS_REPLACEMENT=fsr` explicitly enables FSR; `native` disables both replacements;
 `dlss` asks for DLSS as its setting does.
 
 - Max Resolution add-on off: the 3/4-scale pass (`e40f5efb5480e692`; `ef542df87cacfe9e` on the
@@ -87,7 +87,7 @@ the game keeps its own pass whenever DLSS is off, unavailable or fails to start.
   the game's own bias.
 - FSR 4 (Windows, AMD's driver, off by default): with "Use AMD FSR 4 in place of FSR 3.1" on,
   the same inputs, jitter and RCAS setting go to AMD's FSR 4 through AMD's FidelityFX runtime
-  (FidelityFX SDK 2.4.0, FSR Upscaling 4.1.2). Nothing of AMD's ships with Lichii: the setting's
+  (FidelityFX SDK 2.4.0, FSR Upscaling 4.1.2). Nothing of AMD's ships with Giuray: the setting's
   panel downloads `amd_fidelityfx_loader_vk.dll` and `amd_fidelityfx_upscaler_vk.dll` from
   the SDK's GitHub repository at the release commit into the user folder's `fidelityfx` folder,
   after showing AMD's licence. Each file must match its pinned size and SHA-256
@@ -109,7 +109,7 @@ the game keeps its own pass whenever DLSS is off, unavailable or fails to start.
 - Any unexpected input, a busy frame slot, a rescaled image (resolution scale other than 1x) or
   a failed evaluation leaves the game's pass to run. The log names the reason as
   `Ocarina temporal: the game's upscale draws frame N (reason)`.
-  `EDEN_NX2_DLSS_CONTRACT_TRACE=1` logs every FSR evaluation and scheduler writeback;
+  `GIURAY_NX2_DLSS_CONTRACT_TRACE=1` logs every FSR evaluation and scheduler writeback;
   otherwise periodic evaluation/writeback messages avoid a per-frame logging cost.
 
 Shader hashes, buffer offsets and Link's mesh shape are taken from the game's current build.
@@ -126,10 +126,10 @@ replacement uses FSR 3.1. Missing DLLs and unsupported GPUs fall back to FSR. Re
 asynchronous. A failed DLSS recording clears that frame's output, restores input layouts,
 and makes later evaluations fall back; it does not wait for the scheduler worker.
 
-`EDEN_NX2_DLSS_REPLACEMENT=fsr` selects temporal replacement and forces FSR for comparison.
+`GIURAY_NX2_DLSS_REPLACEMENT=fsr` selects temporal replacement and forces FSR for comparison.
 `dlss` selects temporal replacement with NVIDIA preferred when enabled and available.
 `native` preserves the guest evaluation. With no override, Fire Emblem uses spatial de-jitter.
-The old `EDEN_NX2_DLSS_STANDIN` variable is not read. The internal `standin` backend override
+The old `GIURAY_NX2_DLSS_STANDIN` variable is not read. The internal `standin` backend override
 does not select Fire Emblem's intercepted dispatch. The RCAS sharpness setting controls FSR
 and fallback sharpening. NVIDIA model-selection overrides
 from the upstream implementation remain available for diagnostic comparisons.
@@ -145,20 +145,20 @@ from NVIDIA-RTX/Streamline tag `v2.14.16`, commit
 `625db07d4bca5abc67d781c42af7e7fb0761f1b6`. The SDK directory must contain `include/sl.h`,
 `include/sl_dlss.h`, `include/sl_helpers_vk.h`, `include/sl_security.h` and their companion
 headers. MSVC x86_64 builds enable `ENABLE_NVIDIA_DLSS` by default and fetch the headers;
-`-DEGLANTINE_STREAMLINE_SDK=<header-root>` selects a local copy. This adds Windows
+`-DGIURAY_STREAMLINE_SDK=<header-root>` selects a local copy. This adds Windows
 `version`, `wintrust` and `crypt32` libraries, not NVIDIA import libraries. Retain Streamline's
 MIT `license.txt` in the packaged notices.
 
 Do not bundle NVIDIA's proprietary DLLs. The Graphics panel obtains missing files from
 NVIDIA's Streamline release only after the user reviews and accepts the license texts.
-The runtime searches `EDEN_STREAMLINE_DIR`, the user `streamline` directory, then the
+The runtime searches `GIURAY_STREAMLINE_DIR`, the user `streamline` directory, then the
 executable's `streamline` directory. It verifies the interposer signature and supports the
 NVIDIA app's signed DLSS model. The UI and Windows loading path require Windows validation.
 
 ## Provenance
 
 This backport is AI-assisted and requires human review and testing before distribution.
-It carries upstream work by Duck912 from Eglantine commits `08dbcc7e3b3d`, `11cebf56014a`
+It carries upstream work by Duck912 from upstream commits `08dbcc7e3b3d`, `11cebf56014a`
 and PR #434 through `f9d0c802e8e4`, plus Jonas's warning fix `537c1f4e173a`. The empty-extension requirement
 fix `1889602c7a0d` is a separately included follow-up. Existing SPDX notices and AMD/NVIDIA
 license text are retained. The upstream nx2 merge also carries newer asynchronous recording

@@ -7,7 +7,7 @@ import struct
 import sys
 from collections import Counter
 
-sys.path.insert(0, "C:/Users/gui62/lichii-perf/mp")
+sys.path.insert(0, "C:/Users/gui62/giuray-work/mp")
 from rsp import call  # noqa: E402
 
 ACTOR_VTABLE_OFFSET = 0x85929E18 - 0x80E04000
@@ -44,4 +44,4 @@ print("landings:", landing.most_common(5))
 print(len(good), "chains reach an actor-like object")
 for chain, node, pos in good[:10]:
     print(chain, node, [round(v, 3) for v in pos])
-json.dump([c for c, _, _ in good], open("C:/Users/gui62/lichii-perf/mp/chains_valid.json", "w"), indent=1)
+json.dump([c for c, _, _ in good], open("C:/Users/gui62/giuray-work/mp/chains_valid.json", "w"), indent=1)

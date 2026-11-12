@@ -114,7 +114,7 @@ jobs:
             -DYUZU_USE_BUNDLED_SDL3=ON \
             -DVulkanHeaders_FORCE_BUNDLED=ON \
             -DVulkanUtilityLibraries_FORCE_BUNDLED=ON \
-            -DENABLE_UPDATE_CHECKER=ON \
+            -DENABLE_UPDATE_CHECKER=OFF \
             -DUSE_DISCORD_PRESENCE=OFF \
             -DUSE_CCACHE=ON
 
@@ -236,7 +236,7 @@ jobs:
           -DYUZU_ROOM_STANDALONE=OFF
           -DYUZU_USE_BUNDLED_QT=OFF
           -DYUZU_USE_BUNDLED_SDL3=ON
-          -DENABLE_UPDATE_CHECKER=ON
+          -DENABLE_UPDATE_CHECKER=OFF
           -DUSE_DISCORD_PRESENCE=OFF
           -DUSE_CCACHE=ON
 
@@ -251,14 +251,14 @@ jobs:
           ccache --show-stats -v
 
       # Windows may refuse to load the unsigned nxformat.dll (Smart App Control, code integrity
-      # policies), so lichii.exe must not import it at startup: only a delay import is allowed.
+      # policies), so giuray.exe must not import it at startup: only a delay import is allowed.
       - name: Check nxformat.dll is delay-loaded
         run: |
-          imports=$("$LLVM_ROOT/bin/llvm-readobj" --coff-imports build/bin/lichii.exe |
+          imports=$("$LLVM_ROOT/bin/llvm-readobj" --coff-imports build/bin/giuray.exe |
             awk '/^(Import|DelayImport) {/ { kind = $1 } /^  Name:/ { print kind, $2 }')
           echo "$imports"
           if grep -qix 'Import nxformat.dll' <<< "$imports"; then
-            echo "::error::lichii.exe imports nxformat.dll at startup; it must be delay-loaded"
+            echo "::error::giuray.exe imports nxformat.dll at startup; it must be delay-loaded"
             exit 1
           fi
 

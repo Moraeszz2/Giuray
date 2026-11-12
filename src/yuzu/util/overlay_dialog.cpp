@@ -3,7 +3,9 @@
 // SPDX-FileCopyrightText: Copyright 2021 yuzu Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include <QApplication>
 #include <QKeyEvent>
+#include <QProgressBar>
 #include <QScreen>
 #include <QWindow>
 
@@ -19,6 +21,10 @@ constexpr float BASE_TITLE_FONT_SIZE = 14.0f;
 constexpr float BASE_FONT_SIZE = 18.0f;
 constexpr float BASE_WIDTH = 1280.0f;
 constexpr float BASE_HEIGHT = 720.0f;
+
+constexpr int CompactWidth = 360;
+constexpr int CompactHeight = 112;
+constexpr int CompactMargin = 24;
 
 } // Anonymous namespace
 
@@ -88,6 +94,24 @@ void OverlayDialog::InitializeRegularTextDialog(const QString& title_text, const
 
     if (ui->button_cancel->isHidden() && ui->button_ok_label->isHidden()) {
         ui->buttonsDialog->hide();
+        if (title_text.isEmpty()) {
+            compact = true;
+            auto* busy = new QProgressBar(ui->contentDialog);
+            busy->setObjectName(QStringLiteral("overlayBusy"));
+            busy->setRange(0, 0);
+            busy->setTextVisible(false);
+            busy->setFixedSize(CompactWidth - 2 * CompactMargin, 4);
+            ui->verticalLayout_2->addWidget(busy, 0, Qt::AlignHCenter);
+            for (int i = 0; i < ui->verticalLayout_2->count(); ++i) {
+                ui->verticalLayout_2->setStretch(i, 0);
+            }
+            ui->verticalLayout_2->setContentsMargins(CompactMargin, CompactMargin, CompactMargin,
+                                                     CompactMargin);
+            ui->verticalLayout_2->setSpacing(16);
+            ui->contentDialog->setFixedSize(CompactWidth, CompactHeight);
+            ui->lineDialogGridLayout->setAlignment(ui->contentDialog, Qt::AlignCenter);
+            ui->label_dialog->setStyleSheet(QStringLiteral("padding: 0px;"));
+        }
         return;
     }
 
@@ -172,9 +196,20 @@ void OverlayDialog::MoveAndResizeWindow() {
         BASE_FONT_SIZE * (((width / BASE_WIDTH) + (height / BASE_HEIGHT)) / 2.0f) / dpi_scale;
     const auto button_text_font_size = BASE_FONT_SIZE * (height / BASE_HEIGHT) / dpi_scale;
 
-    QFont title_text_font(QStringLiteral("MS Shell Dlg 2"), title_text_font_size, QFont::Normal);
-    QFont body_text_font(QStringLiteral("MS Shell Dlg 2"), body_text_font_size, QFont::Normal);
-    QFont button_text_font(QStringLiteral("MS Shell Dlg 2"), button_text_font_size, QFont::Normal);
+    if (compact) {
+        QFont message = QApplication::font();
+        message.setPixelSize(16);
+        message.setWeight(QFont::Medium);
+        ui->label_dialog->setFont(message);
+        QDialog::move(pos);
+        QDialog::resize(static_cast<int>(width), static_cast<int>(height));
+        return;
+    }
+
+    const QString family = QApplication::font().family();
+    QFont title_text_font(family, title_text_font_size, QFont::Normal);
+    QFont body_text_font(family, body_text_font_size, QFont::Normal);
+    QFont button_text_font(family, button_text_font_size, QFont::Normal);
 
     if (use_rich_text) {
         ui->label_title_rich->setFont(title_text_font);

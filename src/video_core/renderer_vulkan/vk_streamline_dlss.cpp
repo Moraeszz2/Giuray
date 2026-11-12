@@ -273,9 +273,9 @@ bool StreamlineDlssUpscaler::Upscale(const Inputs& in) {
     options.outputWidth = in.upscale_size.width;
     options.outputHeight = in.upscale_size.height;
     options.colorBuffersHDR =
-        in.hdr && EnvInt("EDEN_NX2_DLSS_HDR", 1) != 0 ? sl::eTrue : sl::eFalse;
+        in.hdr && EnvInt("GIURAY_NX2_DLSS_HDR", 1) != 0 ? sl::eTrue : sl::eFalse;
     options.useAutoExposure =
-        in.hdr && EnvInt("EDEN_NX2_DLSS_AUTO_EXPOSURE", 1) != 0 ? sl::eTrue : sl::eFalse;
+        in.hdr && EnvInt("GIURAY_NX2_DLSS_AUTO_EXPOSURE", 1) != 0 ? sl::eTrue : sl::eFalse;
     const sl::DLSSPreset preset = PresetFor(settings.preset);
     options.dlaaPreset = preset;
     options.qualityPreset = preset;

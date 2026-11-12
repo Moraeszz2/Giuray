@@ -5,6 +5,7 @@
 
 #include "common/fs/fs.h"
 #include "common/fs/path_util.h"
+#include <fmt/format.h>
 #include "core/file_sys/savedata_factory.h"
 #include "core/hle/service/am/am_types.h"
 #include "frontend_common/content_manager.h"
@@ -15,6 +16,8 @@
 #include "video_core/shader_cache_v2/cache.h"
 
 #include <QDesktopServices>
+#include <QFile>
+#include <QSaveFile>
 #include <QStandardPaths>
 #include <QUrl>
 
@@ -133,6 +136,35 @@ bool CreateShortcutLink(const std::filesystem::path& shortcut_path, const std::s
 } catch (const std::exception& e) {
     LOG_ERROR(Frontend, "Failed to create shortcut: {}", e.what());
     return false;
+}
+
+std::filesystem::path CustomIconPath(u64 program_id) {
+    return Common::FS::GetEdenPath(Common::FS::EdenPath::EdenDir) / "game_icons" /
+           fmt::format("{:016X}.png", program_id);
+}
+
+std::vector<u8> ReadCustomIcon(u64 program_id) {
+    QFile file(QString::fromStdString(Common::FS::PathToUTF8String(CustomIconPath(program_id))));
+    // Icons are written square and small; anything far larger is not ours.
+    constexpr qint64 MaxIconBytes = 16 * 1024 * 1024;
+    if (!file.exists() || file.size() > MaxIconBytes || !file.open(QIODevice::ReadOnly)) {
+        return {};
+    }
+    const QByteArray bytes = file.readAll();
+    return {bytes.cbegin(), bytes.cend()};
+}
+
+bool WriteCustomIcon(u64 program_id, const std::vector<u8>& image) {
+    const auto path = CustomIconPath(program_id);
+    std::error_code ec;
+    std::filesystem::create_directories(path.parent_path(), ec);
+    QSaveFile file(QString::fromStdString(Common::FS::PathToUTF8String(path)));
+    if (!file.open(QIODevice::WriteOnly) ||
+        file.write(reinterpret_cast<const char*>(image.data()),
+                   static_cast<qint64>(image.size())) != static_cast<qint64>(image.size())) {
+        return false;
+    }
+    return file.commit();
 }
 
 bool MakeShortcutIcoPath(const u64 program_id, const std::string_view game_file_name,
@@ -515,7 +547,7 @@ void CreateShortcut(const std::string& game_path, const u64 program_id,
     if (CreateShortcutMessagesGUI(ShortcutMessages::Fullscreen, qgame_title)) {
         arguments = "-f " + arguments;
     }
-    const std::string comment = fmt::format("Start {:s} with the Eden Emulator", game_title);
+    const std::string comment = fmt::format("Start {:s} with Giuray", game_title);
     const std::string categories = "Game;Emulator;Qt;";
     const std::string keywords = "Switch;Nintendo;";
 

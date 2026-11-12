@@ -5,12 +5,12 @@
 #include <QTimer>
 #include <QWidget>
 
-#include "core/nx2_multiplayer.h"
+#include "core/nx2_multiplayer/multiplayer.h"
 
 class QWidget;
 
-/// Draws the other Ocarina of Time player (Core::Nx2Multiplayer) over the render window: a
-/// marker at the remote Link's position, projected with the local camera.
+/// Draws the other Ocarina of Time players' names (Core::Nx2Multiplayer) over the render window,
+/// above their Links, projected with the local camera.
 class MultiplayerOverlay : public QWidget {
     Q_OBJECT
 
@@ -27,7 +27,4 @@ private:
     QWidget* render_window;
     QTimer timer;
     Core::Nx2Multiplayer::Frame frame;
-    /// The remote position eased toward each received one, so the marker glides between packets.
-    std::array<float, 3> shown{};
-    bool shown_valid = false;
 };

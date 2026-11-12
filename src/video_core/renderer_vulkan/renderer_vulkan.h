@@ -67,7 +67,7 @@ public:
 #endif
     }
 
-#ifdef EGLANTINE_STREAMLINE
+#ifdef GIURAY_STREAMLINE
     [[nodiscard]] VideoCore::DlssStatus GetDlssStatus() const override;
 #endif
 
@@ -113,7 +113,7 @@ private:
 
     std::shared_ptr<Common::DynamicLibrary> library;
     vk::InstanceDispatch dld;
-#ifdef EGLANTINE_STREAMLINE
+#ifdef GIURAY_STREAMLINE
     bool streamline_started; ///< NVIDIA Streamline starts before the instance.
 #endif
 

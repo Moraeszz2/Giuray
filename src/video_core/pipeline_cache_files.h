@@ -57,7 +57,7 @@ static_assert(IsOlderVersionList(CompatibleVulkanPipelineCacheVersions,
 static_assert(VulkanPipelineCacheVersion == 54,
               "Check CompatibleVulkanPipelineCacheVersions against the new version");
 
-// Official Eglantine (cache version 18 at c0cb3325) and this fork (a different version) both
+// The upstream emulator (cache version 18 at c0cb3325) and this fork (a different version) both
 // used <shader dir>/<title>/vulkan.bin and vulkan_pipelines.bin. Each build deletes a file
 // with another version at boot, so alternating builds made every run start with no pipelines
 // (MKW log: "Deleting old pipeline cache", "Total Pipeline Count: 0", then hundreds of

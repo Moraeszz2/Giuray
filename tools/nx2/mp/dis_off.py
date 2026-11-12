@@ -7,7 +7,7 @@ import sys
 
 import capstone
 
-DUMP = "C:/Users/gui62/lichii-perf/mp/private/main.bin"
+DUMP = "C:/Users/gui62/giuray-work/mp/private/main.bin"
 code = open(DUMP, "rb").read()
 md = capstone.Cs(capstone.CS_ARCH_ARM64, capstone.CS_MODE_ARM)
 

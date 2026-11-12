@@ -10,8 +10,17 @@
 #include <qobjectdefs.h>
 
 class QObject;
+class QScrollArea;
+class QSize;
 
 namespace ConfigurationShared {
+
+/// Wraps a settings tab in a frameless scroll area, so a long tab scrolls inside its dialog
+/// instead of growing the dialog past the screen.
+QScrollArea* ScrollTab(QWidget* tab);
+
+/// Resizes a dialog to its preferred size, shrunk to fit the screen it opens on.
+void FitToScreen(QWidget* dialog, const QSize& preferred);
 
 class Tab : public QWidget {
     Q_OBJECT

@@ -120,7 +120,7 @@ public:
         eden_path = GetExeDirectory() / PORTABLE_DIR;
         portable = IsDir(eden_path);
         if (!Exists(eden_path) || !IsDir(eden_path)) {
-            eden_path = GetAppDataRoamingDirectory() / EDEN_DIR;
+            eden_path = GetAppDataRoamingDirectory() / GIURAY_DIR;
         }
         eden_path_cache = eden_path / CACHE_DIR;
         eden_path_config = eden_path / CONFIG_DIR;
@@ -142,9 +142,9 @@ public:
         eden_path = GetCurrentDir() / PORTABLE_DIR;
         portable = IsDir(eden_path);
         if (!Exists(eden_path) || !IsDir(eden_path)) {
-            eden_path = GetDataDirectory("XDG_DATA_HOME") / EDEN_DIR;
-            eden_path_cache = GetDataDirectory("XDG_CACHE_HOME") / EDEN_DIR;
-            eden_path_config = GetDataDirectory("XDG_CONFIG_HOME") / EDEN_DIR;
+            eden_path = GetDataDirectory("XDG_DATA_HOME") / GIURAY_DIR;
+            eden_path_cache = GetDataDirectory("XDG_CACHE_HOME") / GIURAY_DIR;
+            eden_path_config = GetDataDirectory("XDG_CONFIG_HOME") / GIURAY_DIR;
         } else {
             eden_path_cache = eden_path / CACHE_DIR;
             eden_path_config = eden_path / CONFIG_DIR;

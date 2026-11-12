@@ -7,7 +7,7 @@ import subprocess
 import sys
 
 PY = "B:/msys64/ucrt64/bin/python.exe"
-TOOL = "B:/projetos/Lichii/tools/nx2/debug_mcp.py"
+TOOL = "B:/projetos/Giuray/tools/nx2/debug_mcp.py"
 
 
 def dbg(method, params):

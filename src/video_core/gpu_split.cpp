@@ -92,7 +92,7 @@ GpuSplit GpuSplit::instance;
 
 void GpuSplit::MaybeStart(Core::System& system_) {
     static const char mode = [] {
-        const char* value = std::getenv("EDEN_NX2_SPLIT");
+        const char* value = std::getenv("GIURAY_NX2_SPLIT");
         return value != nullptr ? value[0] : '2';
     }();
     const bool wanted = mode == '1' || mode == '2';
@@ -116,15 +116,15 @@ void GpuSplit::MaybeStart(Core::System& system_) {
         return;
     }
     system = &system_;
-    check_owner = std::getenv("EDEN_NX2_SPLIT_CHECK") != nullptr;
-    const char* const verify = std::getenv("EDEN_NX2_ACQUIRE_VERIFY");
+    check_owner = std::getenv("GIURAY_NX2_SPLIT_CHECK") != nullptr;
+    const char* const verify = std::getenv("GIURAY_NX2_ACQUIRE_VERIFY");
     g_acquire_verify = verify != nullptr && verify[0] == '1';
     g_acquire_counting = g_acquire_verify || Nx2Profile::Enabled();
     ring = std::make_unique<u64[]>(RingWords);
     back_thread = std::jthread([this](std::stop_token stop_token) { BackLoop(stop_token); });
     active = true;
     ++starts;
-    const char* jit = std::getenv("EDEN_NX2_MME_JIT");
+    const char* jit = std::getenv("GIURAY_NX2_MME_JIT");
     front_macros = mode == '2' && (jit == nullptr || jit[0] != '0');
     LOG_INFO(HW_GPU, "GPU thread split: engine methods run on a second thread{}",
              front_macros ? ", macros on the first" : "");

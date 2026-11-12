@@ -14,10 +14,10 @@ namespace {
 // Registers read before any write are zero rather than OpUndef, as NVIDIA hardware and drivers
 // give them; AMD's OpUndef is whatever the register held. Title 1's glow pass exits before
 // writing its colour on some pixels, which AMD blended in as green patches on the road.
-// EDEN_NX2_UNDEF_ZERO=0 emits OpUndef again.
+// GIURAY_NX2_UNDEF_ZERO=0 emits OpUndef again.
 bool UndefIsZero() {
     static const bool zero = [] {
-        const char* const value = std::getenv("EDEN_NX2_UNDEF_ZERO");
+        const char* const value = std::getenv("GIURAY_NX2_UNDEF_ZERO");
         return value == nullptr || value[0] != '0';
     }();
     return zero;

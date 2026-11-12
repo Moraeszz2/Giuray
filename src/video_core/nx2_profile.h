@@ -23,7 +23,7 @@
 #include "common/thread_cpu_clock.h"
 #include "video_core/nx2_stutter_trace.h"
 
-// EDEN_NX2_GPU_PROFILE: time where the GPU thread spends its time. Each zone counts its own
+// GIURAY_NX2_GPU_PROFILE: time where the GPU thread spends its time. Each zone counts its own
 // (exclusive) time, nested zones excluded; every 10 s the thread logs each zone's share.
 namespace VideoCommon::Nx2Profile {
 
@@ -93,7 +93,7 @@ inline constexpr std::array<const char*, static_cast<size_t>(Zone::Count)> zone_
 
 static_assert(static_cast<size_t>(Zone::Count) <= StutterTrace::ZoneSlots);
 
-/// The EDEN_NX2_STUTTER_TRACE category of each zone's exclusive time (None: counted as other).
+/// The GIURAY_NX2_STUTTER_TRACE category of each zone's exclusive time (None: counted as other).
 inline constexpr auto stutter_categories = [] {
     using StutterTrace::Category;
     std::array<Category, static_cast<size_t>(Zone::Count)> categories;
@@ -129,14 +129,14 @@ inline constexpr auto stutter_categories = [] {
 }();
 
 // A plain flag: Enabled() runs several times per method write (no guard to check).
-inline bool g_enabled = std::getenv("EDEN_NX2_GPU_PROFILE") != nullptr;
-/// Whether zones measure: for the profile or for EDEN_NX2_STUTTER_TRACE.
+inline bool g_enabled = std::getenv("GIURAY_NX2_GPU_PROFILE") != nullptr;
+/// Whether zones measure: for the profile or for GIURAY_NX2_STUTTER_TRACE.
 inline bool g_zones_enabled = g_enabled || StutterTrace::ReadEnv();
 
 /// Called by VideoCore::CreateGPU: static initialization runs before the frontend loads
 /// nx2_switches.txt, so a switch set only there takes effect from that point on.
 inline void ReadSwitch() {
-    g_enabled = std::getenv("EDEN_NX2_GPU_PROFILE") != nullptr;
+    g_enabled = std::getenv("GIURAY_NX2_GPU_PROFILE") != nullptr;
     StutterTrace::ReadSwitch();
     g_zones_enabled = g_enabled || StutterTrace::Enabled();
     Common::g_count_spin_contention = g_enabled;

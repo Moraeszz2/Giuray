@@ -242,8 +242,8 @@ void Maxwell3D::ProcessMacro(Core::System& system, u32 method, const u32* base_s
     // list is often guest memory read in place, which the guest may reuse while the macro runs
     // (and the macro memo stores the parameters after it ran). Only accurate GPU mode rewrites
     // the parameters in place (RefreshParameters), so it keeps the vector.
-    // EDEN_NX2_MACRO_COPY=1: always use the vector (for comparisons).
-    static const bool always_copy = std::getenv("EDEN_NX2_MACRO_COPY") != nullptr;
+    // GIURAY_NX2_MACRO_COPY=1: always use the vector (for comparisons).
+    static const bool always_copy = std::getenv("GIURAY_NX2_MACRO_COPY") != nullptr;
     if (is_last_call && macro_params.empty() && amount <= 64 && !always_copy &&
         !Settings::IsGPULevelHigh()) {
         std::array<u32, 64> parameters;
@@ -723,7 +723,7 @@ void Maxwell3D::CallMethodSlow(Core::System& system, u32 method, u32 method_argu
     // would make the next draw re-check that state), no method processing. Title 1 makes ~6
     // million 3D register writes a second, ~60% of them same-value, most from macro replays.
     // Methods with side effects (execution_mask: draws, clears, constant buffer data and
-    // binds, semaphores, ...) always run. EDEN_NX2_SKIP_SAME=0 turns it off.
+    // binds, semaphores, ...) always run. GIURAY_NX2_SKIP_SAME=0 turns it off.
     if (!execution_mask[method]) {
         // ProcessMethodCall (and the draw manager behind it) acts only on executable methods.
         if (!SkipSameValueWrites() || regs.reg_array[method] != argument) {
@@ -743,7 +743,7 @@ void Maxwell3D::DumpRecentWrites(u32 method) {
     LOG_ERROR(HW_GPU, "Write to {:#x} while macro {:#x} collects parameters ({} so far); last writes:",
               method, executing_macro, macro_params.size());
     if (!record_write_history) {
-        LOG_ERROR(HW_GPU, "Register write history disabled; EDEN_NX2_3D_HISTORY=1 enables it");
+        LOG_ERROR(HW_GPU, "Register write history disabled; GIURAY_NX2_3D_HISTORY=1 enables it");
         return;
     }
     for (size_t i = 0; i < recent_writes.size(); ++i) {
@@ -1117,7 +1117,7 @@ void Maxwell3D::SetHLEReplacementAttributeType(u32 bank, u32 offset,
     replace_table.emplace(key, name);
 }
 
-// Split GPU thread with macros on its front half (gpu_split.h, EDEN_NX2_SPLIT=2). The front keeps
+// Split GPU thread with macros on its front half (gpu_split.h, GIURAY_NX2_SPLIT=2). The front keeps
 // what macros read: the registers as the back thread will hold them when it reaches the same
 // point of the method stream. That is every write the front sends, with the shadow RAM applied,
 // plus the few changes the back makes on its own (constant buffer offset, shadow_scratch[0] on
@@ -1170,10 +1170,10 @@ struct Maxwell3D::FrontState {
 
 namespace {
 
-// EDEN_NX2_SPLIT_VERIFY=1: every 4096 front macro calls, wait for the back and compare the
+// GIURAY_NX2_SPLIT_VERIFY=1: every 4096 front macro calls, wait for the back and compare the
 // front's registers with the back's (logs and resynchronizes differences).
 bool FrontVerifyEnabled() {
-    static const bool verify = std::getenv("EDEN_NX2_SPLIT_VERIFY") != nullptr;
+    static const bool verify = std::getenv("GIURAY_NX2_SPLIT_VERIFY") != nullptr;
     return verify;
 }
 
@@ -1214,7 +1214,7 @@ void CheckDmaRead(u32 macro, GPUVAddr source, bool drained, bool waited,
     }
     last_report = now;
     LOG_INFO(HW_GPU,
-             "Macro DMA read checks (EDEN_NX2_DMA_READ_VERIFY) in {:.1f} s: {} reads, {} "
+             "Macro DMA read checks (GIURAY_NX2_DMA_READ_VERIFY) in {:.1f} s: {} reads, {} "
              "without draining the split ({} waited for queued writers), {} of those with other "
              "words than after a drain ({} in all)",
              seconds, reads, undrained_reads, waits, differences, total_differences);
@@ -1259,10 +1259,10 @@ bool FrontHandledOutsideDrawManager(u32 method) {
     }
 }
 
-// EDEN_NX2_SPLIT_SKIP=0: send state writes that keep the register's value too.
+// GIURAY_NX2_SPLIT_SKIP=0: send state writes that keep the register's value too.
 bool FrontSkipSame() {
     static const bool skip = [] {
-        const char* value = std::getenv("EDEN_NX2_SPLIT_SKIP");
+        const char* value = std::getenv("GIURAY_NX2_SPLIT_SKIP");
         return value == nullptr || value[0] != '0';
     }();
     return skip;
@@ -1307,7 +1307,7 @@ bool BackWritable(const Maxwell3D& maxwell3d, u32 method) {
 }
 
 // split.WaitUntil for a macro the back runs in the front's place (FrontRunOnBack), counted for the
-// async read-back line (EDEN_NX2_GPU_PROFILE).
+// async read-back line (GIURAY_NX2_GPU_PROFILE).
 bool WaitForBackMacros(VideoCommon::GpuSplit& split, u64 position, VideoCommon::DrainSite site) {
     if (!VideoCommon::Nx2Profile::Enabled()) {
         return split.WaitUntil(position, site);
@@ -1995,7 +1995,7 @@ void Maxwell3D::FrontDmaRead(VideoCommon::GpuSplit& split, FrontState& fs, u32 m
     if (VideoCommon::Nx2Profile::Enabled()) {
         AsyncReadback::MaybeReport();
     }
-    // EDEN_NX2_DMA_READ_VERIFY: a read made without draining the split drains it anyway and has
+    // GIURAY_NX2_DMA_READ_VERIFY: a read made without draining the split drains it anyway and has
     // the caches write the words out, as a full drain would, and the macro gets those words.
     // CheckDmaRead counts the reads whose words differ from the ones read first.
     const bool verify = AsyncReadback::DmaReadVerify();

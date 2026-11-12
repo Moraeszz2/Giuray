@@ -10765,8 +10765,8 @@ Error code: %3</source>
         <translation>搜索目录</translation>
     </message>
     <message>
-        <source>Search sends only the text above to lichii.zortos.me. The service sees your IP address.</source>
-        <translation>搜索只会把上方文本发送到 lichii.zortos.me。该服务会看到您的 IP 地址。</translation>
+        <source>Search sends only the text above to github.com/Moraeszz2/Giuray. The service sees your IP address.</source>
+        <translation>搜索只会把上方文本发送到 github.com/Moraeszz2/Giuray。该服务会看到您的 IP 地址。</translation>
     </message>
     <message>
         <source>Previous</source>
@@ -10829,8 +10829,8 @@ Error code: %3</source>
         <translation>预填值描述的是启动设置，而不是实测性能。请检查游玩过程中做过的改动。“未知”表示未采集。请勿粘贴日志、路径、密钥或私人信息。</translation>
     </message>
     <message>
-        <source>Lichii build</source>
-        <translation>Lichii 版本</translation>
+        <source>Giuray build</source>
+        <translation>Giuray 版本</translation>
     </message>
     <message>
         <source>Game version</source>
@@ -11475,8 +11475,8 @@ or click to browse</source>
         <translation>下载 NVIDIA DLSS</translation>
     </message>
     <message>
-        <source>Lichii will download %1 from NVIDIA's Streamline %2 release on GitHub into %3.&lt;br&gt;These files are NVIDIA's, under NVIDIA's licence terms below.</source>
-        <translation>Lichii 会把 %1 从 GitHub 上 NVIDIA 的 Streamline %2 发布包下载到 %3。&lt;br&gt;这些文件属于 NVIDIA，适用下方 NVIDIA 的许可条款。</translation>
+        <source>Giuray will download %1 from NVIDIA's Streamline %2 release on GitHub into %3.&lt;br&gt;These files are NVIDIA's, under NVIDIA's licence terms below.</source>
+        <translation>Giuray 会把 %1 从 GitHub 上 NVIDIA 的 Streamline %2 发布包下载到 %3。&lt;br&gt;这些文件属于 NVIDIA，适用下方 NVIDIA 的许可条款。</translation>
     </message>
     <message>
         <source>Accept and Download</source>

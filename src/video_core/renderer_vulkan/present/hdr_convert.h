@@ -52,7 +52,7 @@ struct HdrConvertParams {
 /// False when the layer's values already are what the frame needs.
 [[nodiscard]] bool NeedsHdrConvert(const HdrConvertParams& params);
 
-/// vulkan_hdr_convert.frag drawing into framebuffers of one format (Eglantine #557's passes, one
+/// vulkan_hdr_convert.frag drawing into framebuffers of one format (upstream #557's passes, one
 /// shader).
 class HdrConvertPass {
 public:

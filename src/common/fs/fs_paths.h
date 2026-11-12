@@ -8,7 +8,7 @@
 
 // yuzu data directories
 
-#define EDEN_DIR "lichii"
+#define GIURAY_DIR "giuray"
 #define EDEN_LEGACY_DIR "eden"
 #define PORTABLE_DIR "user"
 
@@ -42,6 +42,6 @@
 #define RYUJINX_DIR "Ryujinx"
 
 // yuzu-specific files
-#define LOG_FILE "eden_log.txt"
+#define LOG_FILE "giuray_log.txt"
 #define LOSSLESS_DLL_FILE "Lossless.dll"
 #define LOSSLESS_CACHE_FILE "lsfg_spirv.cache"

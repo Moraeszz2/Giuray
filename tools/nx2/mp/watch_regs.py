@@ -2,7 +2,7 @@
 import json
 import sys
 
-sys.path.insert(0, "C:/Users/gui62/lichii-perf/mp")
+sys.path.insert(0, "C:/Users/gui62/giuray-work/mp")
 from rsp import call  # noqa: E402
 
 address = sys.argv[1]

@@ -9,7 +9,7 @@ import sys
 from collections import Counter
 
 PY = "B:/msys64/ucrt64/bin/python.exe"
-TOOL = "B:/projetos/Lichii/tools/nx2/debug_mcp.py"
+TOOL = "B:/projetos/Giuray/tools/nx2/debug_mcp.py"
 
 
 def dbg(method, params):
@@ -47,4 +47,4 @@ print(len(rows), "matrices with Link's X, Y and Z near")
 blocks = Counter(a & ~0xFFF for a in rows)
 for page, count in blocks.most_common(8):
     print(f"  page {page:#x}: {count} matrices")
-json.dump([hex(a) for a in rows], open("C:/Users/gui62/lichii-perf/mp/bones.json", "w"))
+json.dump([hex(a) for a in rows], open("C:/Users/gui62/giuray-work/mp/bones.json", "w"))

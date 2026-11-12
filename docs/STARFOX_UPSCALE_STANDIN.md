@@ -24,7 +24,7 @@ zero-filled padding; replace only zero instructions with NOP in a scratch copy
 when disassembling it, without changing the source used to calculate the key.
 
 Upstream `401dfb9329` recognizes this family by resource slots rather than title.
-Lichii deliberately retained the stricter Fire Emblem title/fingerprint gate when
+Giuray deliberately retained the stricter Fire Emblem title/fingerprint gate when
 merging it. That gate excludes Star Fox despite the matching captured accesses.
 This change extends the strict recognition instead of reinstating the generic
 heuristic. It reuses the spatial de-jitter path from `b9d6b4a71e`; motion-vector
@@ -70,11 +70,11 @@ fingerprints or slot-search heuristics are added.
 
 ## Owner-side comparison
 
-Start a fresh process with `EDEN_NX2_DLSS_CONTRACT_TRACE=1` and log filter
+Start a fresh process with `GIURAY_NX2_DLSS_CONTRACT_TRACE=1` and log filter
 `*:Info HW.GPU:Debug Shader:Debug Render.Vulkan:Debug`.
-Leave `EDEN_NX2_DLSS_REPLACEMENT` unset for the spatial candidate. Star Fox always
+Leave `GIURAY_NX2_DLSS_REPLACEMENT` unset for the spatial candidate. Star Fox always
 uses the spatial path, even if `fsr` or `dlss` is requested; its temporal resource
-contract has not been validated. Set `EDEN_NX2_DLSS_REPLACEMENT=native` in a second
+contract has not been validated. Set `GIURAY_NX2_DLSS_REPLACEMENT=native` in a second
 fresh process to retain the original output for comparison.
 
 `Star Fox DLSS replacement: applied temporal=false` confirms application and logs

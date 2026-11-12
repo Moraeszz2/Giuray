@@ -31,10 +31,10 @@ concept StreamUniformReusable = requires(R& runtime, u32 size) {
     { runtime.CurrentTick() } -> std::convertible_to<u64>;
 };
 
-/// EDEN_NX2_UBOREUSE=0 turns the reuse off (every small uniform buffer is copied, as before).
+/// GIURAY_NX2_UBOREUSE=0 turns the reuse off (every small uniform buffer is copied, as before).
 [[nodiscard]] inline bool UniformStreamReuseEnabled() noexcept {
     static const bool enabled = [] {
-        const char* const value = std::getenv("EDEN_NX2_UBOREUSE");
+        const char* const value = std::getenv("GIURAY_NX2_UBOREUSE");
         return value == nullptr || value[0] != '0';
     }();
     return enabled;
@@ -142,7 +142,7 @@ template <class Runtime>
     return true;
 }
 
-/// EDEN_NX2_UBO_KEEP_VERIFY: whether guest memory still holds the bytes the slot's last
+/// GIURAY_NX2_UBO_KEEP_VERIFY: whether guest memory still holds the bytes the slot's last
 /// bind read from the range RebindKeptUniform would reuse.
 template <class Runtime, class DeviceMemory>
 [[nodiscard]] bool KeptUniformHolds(DeviceMemory& device_memory, size_t stage, u32 index,

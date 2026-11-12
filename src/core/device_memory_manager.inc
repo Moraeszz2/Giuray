@@ -144,11 +144,11 @@ struct EmptyAllocator {
 } // namespace
 
 // An unmapped read returns zeros. The first 16 are logged with their caller, every one with
-// EDEN_NX2_READBLOCK_TRACE=1.
+// GIURAY_NX2_READBLOCK_TRACE=1.
 inline void ReportUnmappedRead(DAddr first_unmapped, DAddr address, size_t size,
                                size_t unmapped_bytes, const std::source_location& caller) {
     static const bool trace = [] {
-        const char* value = std::getenv("EDEN_NX2_READBLOCK_TRACE");
+        const char* value = std::getenv("GIURAY_NX2_READBLOCK_TRACE");
         return value != nullptr && value[0] == '1';
     }();
     static std::atomic<u32> reported{};

@@ -3,10 +3,10 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 # Local copy of the release workflow's windows-x86_64-pgo build (MSYS2 UCRT64 clang with
-# eglantine.profdata), for A/B packages on a desktop. Run from an MSYS2 UCRT64 shell:
+# giuray.profdata), for A/B packages on a desktop. Run from an MSYS2 UCRT64 shell:
 #   tools/nx2/perf/build-mingw-pgo.sh <build dir> <package dir> [build tag]
-# The package dir gets lichii.exe, eden-cli.exe, their DLLs and a CodeView lichii.pdb, which the
-# in-process sampler (EDEN_NX2_SAMPLE, the debug server's `sample`) needs to name functions.
+# The package dir gets giuray.exe, giuray-cli.exe, their DLLs and a CodeView giuray.pdb, which the
+# in-process sampler (GIURAY_NX2_SAMPLE, the debug server's `sample`) needs to name functions.
 # The PDB comes from -g1 line tables only: debug info does not change clang's code generation.
 set -euo pipefail
 
@@ -16,7 +16,7 @@ package=${2:?package dir}
 tag=${3:-local-$(git -C "$src" rev-parse --short HEAD)}
 export PATH="/ucrt64/bin:$PATH"
 
-profile="-fprofile-use=$(cygpath -m "$src/eglantine.profdata") -Wno-backend-plugin \
+profile="-fprofile-use=$(cygpath -m "$src/giuray.profdata") -Wno-backend-plugin \
   -Wno-profile-instr-unprofiled -Wno-profile-instr-out-of-date"
 symbols="-g1 -gcodeview"
 # The bundled MinGW FFmpeg has no AV1 decoder (externals/ffmpeg uses the AV1 package for MSVC and
@@ -44,8 +44,8 @@ cmake -S "$src" -B "$build" -G Ninja \
         -DVulkanHeaders_FORCE_BUNDLED=ON \
         -DVulkanUtilityLibraries_FORCE_BUNDLED=ON \
         -DENABLE_UPDATE_CHECKER=OFF \
-        -DLICHII_BUILD_TAG="$tag" \
-        -DLICHII_BUILD_PLATFORM=windows-x86_64-pgo \
+        -DGIURAY_BUILD_TAG="$tag" \
+        -DGIURAY_BUILD_PLATFORM=windows-x86_64-pgo \
         -DUSE_DISCORD_PRESENCE=OFF \
         -DUSE_CCACHE=ON \
         -DCMAKE_C_COMPILER=clang \
@@ -58,13 +58,13 @@ cmake --build "$build" --target yuzu yuzu-cmd --parallel "${JOBS:-$(nproc)}"
 
 rm -rf "$package"
 mkdir -p "$package"
-cp "$build"/bin/lichii.exe "$build"/bin/eden-cli.exe "$package"/
+cp "$build"/bin/giuray.exe "$build"/bin/giuray-cli.exe "$package"/
 cp "$build"/bin/*.pdb "$package"/ 2>/dev/null || true
 # DLLs the build puts next to the executables (nxformat), which the PATH lookup below misses.
 find "$build"/bin -maxdepth 1 -name '*.dll' ! -name 'Qt6*' -exec cp {} "$package"/ \;
 cd "$package"
 windeployqt6 --no-translations --no-compiler-runtime --no-opengl-sw \
-    --no-system-dxc-compiler --no-system-d3d-compiler lichii.exe > /dev/null
+    --no-system-dxc-compiler --no-system-d3d-compiler giuray.exe > /dev/null
 deps() {
     objdump -p "$1" | awk '/DLL Name:/ {print $3}' | while read -r dll; do
         [ -z "$dll" ] && continue
@@ -83,7 +83,7 @@ deps() {
         fi
     done
 }
-for exe in lichii.exe eden-cli.exe; do
+for exe in giuray.exe giuray-cli.exe; do
     deps "$exe"
 done
 find . -name '*.dll' | while read -r dll; do

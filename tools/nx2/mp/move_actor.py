@@ -8,11 +8,11 @@ import sys
 import threading
 import time
 
-sys.path.insert(0, "C:/Users/gui62/lichii-perf/mp")
+sys.path.insert(0, "C:/Users/gui62/giuray-work/mp")
 from rsp import call  # noqa: E402
 
 PY = "B:/msys64/ucrt64/bin/python.exe"
-TOOL = "B:/projetos/Lichii/tools/nx2/debug_mcp.py"
+TOOL = "B:/projetos/Giuray/tools/nx2/debug_mcp.py"
 
 address = int(sys.argv[1], 16)
 delta = [float(v) for v in sys.argv[2:5]]
@@ -39,7 +39,7 @@ thread = threading.Thread(target=writer)
 thread.start()
 time.sleep(seconds / 2)
 subprocess.run([PY, "-I", TOOL, "--server", "127.0.0.1:6545", "--call", '{"method":"screenshot"}',
-                "--out", f"C:/Users/gui62/lichii-perf/mp/{shot}.png"], capture_output=True, timeout=120)
+                "--out", f"C:/Users/gui62/giuray-work/mp/{shot}.png"], capture_output=True, timeout=120)
 time.sleep(seconds / 2)
 stop.set()
 thread.join()

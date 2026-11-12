@@ -31,10 +31,10 @@ class EngineInterface;
 
 namespace VideoCommon {
 
-/// Why the split's front waited for its back (EDEN_NX2_GPU_PROFILE counts each).
+/// Why the split's front waited for its back (GIURAY_NX2_GPU_PROFILE counts each).
 enum class DrainSite : u32 {
     Other,
-    FetchDrain,     ///< EDEN_NX2_FETCH_DRAIN: before every entry
+    FetchDrain,     ///< GIURAY_NX2_FETCH_DRAIN: before every entry
     Acquire,        ///< A semaphore acquire reads the value the back may release
     SemaphoreFlush, ///< The acquired semaphore is in the buffer cache
     FenceRelease,   ///< The puller's acquires release the pending fences
@@ -47,7 +47,7 @@ enum class DrainSite : u32 {
     GpSyncFence,    ///< A GP entry's sync bit (sync_memory_operations)
     Map,            ///< GPU memory maps before later command reads
     FrontStart,     ///< The front takes an engine's macros over
-    FrontVerify,    ///< EDEN_NX2_FRONT_VERIFY
+    FrontVerify,    ///< GIURAY_NX2_FRONT_VERIFY
     RingFull,       ///< The ring is full: the front waits for the back to make room
     BackRegister,   ///< A register a macro the back ran may have written (Maxwell3D)
     BackCode,       ///< The macro code changes under the macros the back has yet to run
@@ -55,7 +55,7 @@ enum class DrainSite : u32 {
 };
 
 /// How semaphore acquires and the polls of suspended ones were decided, counted with
-/// EDEN_NX2_GPU_PROFILE or EDEN_NX2_ACQUIRE_VERIFY and logged every 10 s (GpuSplit::ReportAcquire).
+/// GIURAY_NX2_GPU_PROFILE or GIURAY_NX2_ACQUIRE_VERIFY and logged every 10 s (GpuSplit::ReportAcquire).
 struct AcquireStats {
     std::atomic<u64> passed{};    ///< Acquires and polls met without a drain
     std::atomic<u64> by_queued{}; ///< Of passed: met by a release the back had not run yet
@@ -79,10 +79,10 @@ struct AcquireStats {
     std::atomic<u64> late{};       ///< VERIFY: a poll kept waiting, yet a drain meets it
 };
 inline AcquireStats g_acquire_stats;
-/// Whether g_acquire_stats counts (EDEN_NX2_GPU_PROFILE or EDEN_NX2_ACQUIRE_VERIFY), as of the
+/// Whether g_acquire_stats counts (GIURAY_NX2_GPU_PROFILE or GIURAY_NX2_ACQUIRE_VERIFY), as of the
 /// split's last start.
 inline bool g_acquire_counting{};
-/// EDEN_NX2_ACQUIRE_VERIFY=1: acquires decided without a drain drain anyway and compare.
+/// GIURAY_NX2_ACQUIRE_VERIFY=1: acquires decided without a drain drain anyway and compare.
 inline bool g_acquire_verify{};
 
 inline void Count(std::atomic<u64>& counter, u64 amount = 1) {
@@ -106,7 +106,7 @@ inline constexpr std::array<const char*, static_cast<size_t>(DrainSite::Count)> 
 // catch up (Drain) only where it needs a result from that state, e.g. a semaphore it acquires.
 // On for Switch 2 titles with the 3D and compute engines' macros on the front, against copies of
 // the registers they read (Maxwell3D and KeplerCompute Front*), which sends the writes they make.
-// EDEN_NX2_SPLIT=1 keeps the macros on the back; EDEN_NX2_SPLIT=0 runs everything on one thread.
+// GIURAY_NX2_SPLIT=1 keeps the macros on the back; GIURAY_NX2_SPLIT=0 runs everything on one thread.
 class GpuSplit {
 public:
     static GpuSplit& Get() {
@@ -121,7 +121,7 @@ public:
     [[nodiscard]] u32 Starts() const {
         return starts;
     }
-    /// Whether the front runs the engines' macros (EDEN_NX2_SPLIT=2).
+    /// Whether the front runs the engines' macros (GIURAY_NX2_SPLIT=2).
     [[nodiscard]] bool FrontMacros() const {
         return front_macros;
     }
@@ -155,7 +155,7 @@ public:
         wake.notify_one();
     }
 
-    /// Starts the back thread once the split is wanted (EDEN_NX2_SPLIT=1, a Switch 2 title,
+    /// Starts the back thread once the split is wanted (GIURAY_NX2_SPLIT=1, a Switch 2 title,
     /// commands read without cache flushes). Called by the front between commands.
     void MaybeStart(Core::System& system);
     void Stop();
@@ -254,7 +254,7 @@ public:
         Drain(site);
     }
 
-    /// EDEN_NX2_SPLIT_CHECK=1 (debug): reports, with its stack, a thread other than the back
+    /// GIURAY_NX2_SPLIT_CHECK=1 (debug): reports, with its stack, a thread other than the back
     /// using back-owned state (the Vulkan scheduler) while the back runs entries.
     static inline bool check_owner{};
     static void CheckOwner(const char* where);

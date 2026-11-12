@@ -39,6 +39,7 @@
 #include "qt_common/game_list/game_list_p.h"
 
 #include "qt_common/game_list/model.h"
+#include "qt_common/util/game.h"
 #include "qt_common/game_list/discovery.h"
 #include "qt_common/game_list/worker.h"
 
@@ -288,9 +289,13 @@ QList<QStandardItem*> MakeGameListEntry(const std::string& path, const std::stri
         }
     }
 
+    // An icon the user picked overrides the one in the game.
+    const std::vector<u8> custom_icon = QtCommon::Game::ReadCustomIcon(program_id);
+
     u64 play_time = play_time_manager.GetPlayTime(program_id);
     return QList<QStandardItem*>{
-        new GameListItemPath(FormatGameName(path), icon, QString::fromStdString(name),
+        new GameListItemPath(FormatGameName(path), custom_icon.empty() ? icon : custom_icon,
+                             QString::fromStdString(name),
                              file_type_string, program_id, play_time, patch_versions),
         new GameListItem(file_type_string),
         new GameListItemSize(size),

@@ -50,7 +50,7 @@
 #include "video_core/texture_cache/util.h"
 #include "video_core/dlss_contract.h"
 #include "video_core/vulkan_common/vulkan_device.h"
-#ifdef EGLANTINE_STREAMLINE
+#ifdef GIURAY_STREAMLINE
 #include "video_core/vulkan_common/streamline.h"
 #endif
 #include "video_core/vulkan_common/unbacked_fallback.h"
@@ -277,7 +277,7 @@ constexpr VkBorderColor ConvertBorderColor(const std::array<float, 4>& color) {
 
 // How SparseTiles images leave the blocks without data: unbound (reads give zero), or all bound to
 // one zeroed block where the driver can't sample unbound memory (AMD) but lets blocks share
-// memory. EDEN_NX2_SPARSE_ALIASED=1 takes the shared block wherever it is supported, =0 never.
+// memory. GIURAY_NX2_SPARSE_ALIASED=1 takes the shared block wherever it is supported, =0 never.
 enum class SparseTilesMode {
     None,
     Unbound,
@@ -286,7 +286,7 @@ enum class SparseTilesMode {
 
 [[nodiscard]] SparseTilesMode SparseTilesModeOf(const Device& device) {
     static const char force_aliased = [] {
-        const char* value = std::getenv("EDEN_NX2_SPARSE_ALIASED");
+        const char* value = std::getenv("GIURAY_NX2_SPARSE_ALIASED");
         return value == nullptr ? '\0' : value[0];
     }();
     if (!device.IsSparseResidencyImage2DSupported()) {
@@ -412,10 +412,10 @@ constexpr std::array<VkFormat, 2> OpaqueAstcViewFormats{VK_FORMAT_BC1_RGBA_UNORM
 
 // The most a trimmed ASTC array keeps on the host: 512 MiB, 256 MiB on GPUs with less than 7 GiB
 // (title 1's two terrain arrays took 724 MiB of a 6 GB card next to ~1.2 GB of other sparse terrain
-// textures). EDEN_NX2_ASTC_ARRAY_MIB=<MiB> sets it.
+// textures). GIURAY_NX2_ASTC_ARRAY_MIB=<MiB> sets it.
 [[nodiscard]] u64 TrimmedAstcArrayLimit(const Device& device) {
     static const u64 forced = [] {
-        const char* value = std::getenv("EDEN_NX2_ASTC_ARRAY_MIB");
+        const char* value = std::getenv("GIURAY_NX2_ASTC_ARRAY_MIB");
         return value != nullptr ? std::strtoull(value, nullptr, 10) << 20 : 0ULL;
     }();
     if (forced != 0) {
@@ -1275,14 +1275,14 @@ void UseBc3ForSwitch2OnSmallCards(const Device& device) {
     }
     const u64 budget = device.GetDeviceMemoryBudget();
     const u64 memory = budget != 0 ? budget : device.GetDeviceLocalMemory();
-    const char* keep = std::getenv("EDEN_NX2_KEEP_ASTC");
+    const char* keep = std::getenv("GIURAY_NX2_KEEP_ASTC");
     if (memory >= 20_GiB || (keep != nullptr && keep[0] == '1')) {
         return;
     }
     LOG_WARNING(Render_Vulkan,
                 "Switch 2 program with a {} MiB video memory budget: ASTC textures are "
                 "re-compressed to BC3 for this session (uncompressed ASTC needs a 20 GiB budget). "
-                "Set EDEN_NX2_KEEP_ASTC=1 to keep them uncompressed",
+                "Set GIURAY_NX2_KEEP_ASTC=1 to keep them uncompressed",
                 memory >> 20);
     Settings::SetAstcRecompressionOverride(Settings::AstcRecompression::Bc3);
 }
@@ -1814,16 +1814,16 @@ void TextureCacheRuntime::ReinterpretImage(Image& dst, Image& src,
 
 bool TextureCacheRuntime::WantsTemporalUpscaleDepth() const {
     // FSR 3.1 replaces DLSS; the temporal stand-in only runs when FSR cannot (no depth, a device
-    // without the formats, a failed start). EDEN_NX2_DLSS_REPLACEMENT=standin forces
+    // without the formats, a failed start). GIURAY_NX2_DLSS_REPLACEMENT=standin forces
     // the stand-in for A/B runs.
     static const bool force_standin = [] {
-        const char* const value = std::getenv("EDEN_NX2_DLSS_REPLACEMENT");
+        const char* const value = std::getenv("GIURAY_NX2_DLSS_REPLACEMENT");
         return value && std::string_view{value} == "standin";
     }();
     if (force_standin) {
         return false;
     }
-#ifdef EGLANTINE_STREAMLINE
+#ifdef GIURAY_STREAMLINE
     if (Streamline::IsDlssAvailable() && !dlss_unsupported) {
         return true;
     }
@@ -1832,9 +1832,9 @@ bool TextureCacheRuntime::WantsTemporalUpscaleDepth() const {
 }
 
 bool TextureCacheRuntime::UsesNvidiaDlss() const {
-#ifdef EGLANTINE_STREAMLINE
+#ifdef GIURAY_STREAMLINE
     static const bool force_fsr = [] {
-        const char* const value = std::getenv("EDEN_NX2_DLSS_REPLACEMENT");
+        const char* const value = std::getenv("GIURAY_NX2_DLSS_REPLACEMENT");
         return value && std::string_view{value} == "fsr";
     }();
     return !force_fsr && !dlss_unsupported && Streamline::IsDlssAvailable();
@@ -1870,7 +1870,7 @@ bool TextureCacheRuntime::UpscaleWithFsr3(Framebuffer* dst_framebuffer, ImageVie
             : 1000.0f / 30.0f;
     const bool reset = !fsr3_last_evaluation || frame_time_ms > 250.0f;
     fsr3_last_evaluation = now;
-#ifdef EGLANTINE_STREAMLINE
+#ifdef GIURAY_STREAMLINE
     if (UpscaleWithDlss(dst_framebuffer, input_color, motion_vectors, depth, render_size, jitter,
                         motion_scale, reset)) {
         return true;
@@ -1899,8 +1899,8 @@ bool TextureCacheRuntime::UpscaleWithFsr3(Framebuffer* dst_framebuffer, ImageVie
     }
     // FSR's own RCAS, set by the sharpness slider: FSR takes 0-1 for 2 to 0 stops, and the slider
     // stores stops x 100, so this is the percentage the slider shows; 0% (stored 200) is off.
-    // EDEN_NX2_TEMPORAL_SHARPEN=<stops>|off overrides the slider.
-    static const char* const sharpen_override = std::getenv("EDEN_NX2_TEMPORAL_SHARPEN");
+    // GIURAY_NX2_TEMPORAL_SHARPEN=<stops>|off overrides the slider.
+    static const char* const sharpen_override = std::getenv("GIURAY_NX2_TEMPORAL_SHARPEN");
     const int slider = Settings::values.fsr_sharpening_slider.GetValue();
     bool sharpen = slider < 200;
     f32 stops = static_cast<f32>(slider) / 100.0f;
@@ -1977,15 +1977,15 @@ void TextureCacheRuntime::DrawUpscaledOutput(Framebuffer* dst_framebuffer, VkIma
     });
 }
 
-#ifdef EGLANTINE_STREAMLINE
+#ifdef GIURAY_STREAMLINE
 bool TextureCacheRuntime::UpscaleWithDlss(Framebuffer* dst_framebuffer, ImageView& input_color,
                                           ImageView& motion_vectors, ImageView& depth,
                                           std::array<u32, 2> render_size,
                                           std::array<f32, 2> jitter,
                                           std::array<f32, 2> motion_scale, bool reset) {
-    // EDEN_NX2_DLSS_REPLACEMENT=fsr keeps FSR 3.1 for A/B runs.
+    // GIURAY_NX2_DLSS_REPLACEMENT=fsr keeps FSR 3.1 for A/B runs.
     static const bool force_fsr = [] {
-        const char* const value = std::getenv("EDEN_NX2_DLSS_REPLACEMENT");
+        const char* const value = std::getenv("GIURAY_NX2_DLSS_REPLACEMENT");
         return value && std::string_view{value} == "fsr";
     }();
     if (force_fsr || dlss_unsupported) {
@@ -2227,17 +2227,17 @@ bool TextureCacheRuntime::TemporalUpscale(Framebuffer* dst_framebuffer, ImageVie
     // the pixel; the neighbourhood clip limits what older samples contribute). Still pixels use a
     // sample kernel a third as wide as for moving ones (the jittered frames fill in the detail) and
     // a clip of 1.5 deviations instead of 1.
-    // EDEN_NX2_TEMPORAL_WEIGHT / _KERNEL / _CLIP / _CLIP_MOTION / _KERNEL_MOTION
+    // GIURAY_NX2_TEMPORAL_WEIGHT / _KERNEL / _CLIP / _CLIP_MOTION / _KERNEL_MOTION
     // override them (all 1 = the previous stand-in's filter).
     const auto tuned = [](const char* name, f32 fallback) {
         const char* value = std::getenv(name);
         return value ? static_cast<f32>(std::strtod(value, nullptr)) : fallback;
     };
-    static const f32 current_weight = tuned("EDEN_NX2_TEMPORAL_WEIGHT", 0.1f);
-    static const f32 kernel_scale = tuned("EDEN_NX2_TEMPORAL_KERNEL", 3.0f);
-    static const f32 clip_width = tuned("EDEN_NX2_TEMPORAL_CLIP", 1.5f);
-    static const f32 clip_motion = tuned("EDEN_NX2_TEMPORAL_CLIP_MOTION", 1.0f);
-    static const f32 kernel_motion = tuned("EDEN_NX2_TEMPORAL_KERNEL_MOTION", 1.0f);
+    static const f32 current_weight = tuned("GIURAY_NX2_TEMPORAL_WEIGHT", 0.1f);
+    static const f32 kernel_scale = tuned("GIURAY_NX2_TEMPORAL_KERNEL", 3.0f);
+    static const f32 clip_width = tuned("GIURAY_NX2_TEMPORAL_CLIP", 1.5f);
+    static const f32 clip_motion = tuned("GIURAY_NX2_TEMPORAL_CLIP_MOTION", 1.0f);
+    static const f32 kernel_motion = tuned("GIURAY_NX2_TEMPORAL_KERNEL_MOTION", 1.0f);
     blit_image_helper.TemporalUpscale(dst_framebuffer, input_color, motion_vectors,
                                       *temporal_history.views[read_index],
                                       *temporal_history.views[write_index], dst_region, jitter,
@@ -2245,8 +2245,8 @@ bool TextureCacheRuntime::TemporalUpscale(Framebuffer* dst_framebuffer, ImageVie
                                       clip_width, clip_motion, kernel_motion, render_size);
     // RCAS on the output, set by the FSR sharpness slider (stops as FSR takes them, 0% = stored 200
     // turns it off). It reads the unsharpened result just stored, which stays the history.
-    // EDEN_NX2_TEMPORAL_SHARPEN=<stops>|off overrides the slider.
-    static const char* const sharpen_override = std::getenv("EDEN_NX2_TEMPORAL_SHARPEN");
+    // GIURAY_NX2_TEMPORAL_SHARPEN=<stops>|off overrides the slider.
+    static const char* const sharpen_override = std::getenv("GIURAY_NX2_TEMPORAL_SHARPEN");
     const int slider = Settings::values.fsr_sharpening_slider.GetValue();
     bool sharpen = slider < 200;
     f32 sharpness = static_cast<f32>(slider) / 100.0f;
@@ -2900,9 +2900,9 @@ void TextureCacheRuntime::LogMemoryTrace() {
 }
 
 bool TextureCacheRuntime::UseOpaqueAstcFormat() const {
-    // EDEN_NX2_ASTC_BC1=0 keeps every re-compressed ASTC image in BC3.
+    // GIURAY_NX2_ASTC_BC1=0 keeps every re-compressed ASTC image in BC3.
     static const bool enabled = [] {
-        const char* value = std::getenv("EDEN_NX2_ASTC_BC1");
+        const char* value = std::getenv("GIURAY_NX2_ASTC_BC1");
         return value == nullptr || value[0] != '0';
     }();
     return enabled && !device.IsOptimalAstcSupported() &&
@@ -4721,8 +4721,8 @@ Sampler::Sampler(TextureCacheRuntime& runtime, const Tegra::Texture::TSCEntry& t
     if (tsc.mipmap_filter != TextureMipmapFilter::None) {
         min_lod = tsc.MinLod();
         max_lod = tsc.MaxLod();
-        // EDEN_NX2_FORCE_LOD0: sample only the top mip level (debug aid for mip layout problems).
-        if (static const bool force_lod0 = std::getenv("EDEN_NX2_FORCE_LOD0") != nullptr; force_lod0) {
+        // GIURAY_NX2_FORCE_LOD0: sample only the top mip level (debug aid for mip layout problems).
+        if (static const bool force_lod0 = std::getenv("GIURAY_NX2_FORCE_LOD0") != nullptr; force_lod0) {
             min_lod = 0.0f;
             max_lod = 0.25f;
         }

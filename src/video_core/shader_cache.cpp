@@ -186,7 +186,7 @@ bool ShaderCache::RefreshStages(std::array<u64, 6>& unique_hashes) try {
                     LOG_ERROR(HW_GPU, "Rejected program {:#x} is bound to stage {}: header {:08x}, slot {:08x}",
                               shader_addr, index, fmt::join(header, " "), fmt::join(config, " "));
                 }
-                if (native && std::getenv("EDEN_NX2_SHADER_DUMP")) {
+                if (native && std::getenv("GIURAY_NX2_SHADER_DUMP")) {
                     for (size_t next = index + 1; next < unique_hashes.size(); ++next) {
                         const auto next_program =
                             static_cast<Tegra::Engines::Maxwell3D::Regs::ShaderType>(next);
@@ -297,7 +297,7 @@ const ShaderInfo* ShaderCache::ComputeShader() {
         }
     }
     // Check both warm and cold shader paths, before selecting a disk-cached pipeline.
-    // EDEN_NX2_DLSS_REPLACEMENT=native retains the native network for comparisons.
+    // GIURAY_NX2_DLSS_REPLACEMENT=native retains the native network for comparisons.
     if (kepler_compute->IsNativeMode() && shader->lowered_native &&
         DlssContract::IsFastFusionCandidate(program_id,
                                             shader->lowered_native->native_program_key)) {

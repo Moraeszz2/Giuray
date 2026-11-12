@@ -7,11 +7,11 @@ import subprocess
 import sys
 import time
 
-sys.path.insert(0, "C:/Users/gui62/lichii-perf/mp")
+sys.path.insert(0, "C:/Users/gui62/giuray-work/mp")
 from rsp import call  # noqa: E402
 
 PY = "B:/msys64/ucrt64/bin/python.exe"
-TOOL = "B:/projetos/Lichii/tools/nx2/debug_mcp.py"
+TOOL = "B:/projetos/Giuray/tools/nx2/debug_mcp.py"
 ACTOR_VTABLE_OFFSET = 0x85929E18 - 0x80E04000
 seconds = float(sys.argv[1]) if len(sys.argv) > 1 else 2.0
 

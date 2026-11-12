@@ -3,8 +3,11 @@
 
 #pragma once
 
+#include <vector>
+
 #include <QObject>
 #include <QStandardPaths>
+#include "common/common_types.h"
 #include "common/fs/path_util.h"
 
 namespace QtCommon::Game {
@@ -38,6 +41,13 @@ bool CreateShortcutLink(const std::filesystem::path& shortcut_path, const std::s
 
 bool MakeShortcutIcoPath(const u64 program_id, const std::string_view game_file_name,
                          std::filesystem::path& out_icon_path);
+
+/// Where the icon the user picked for a game is kept, outside its archive: rewriting a NUP to
+/// embed one copies the whole archive.
+std::filesystem::path CustomIconPath(u64 program_id);
+/// The user's icon for a game (encoded image bytes), or empty when there is none.
+std::vector<u8> ReadCustomIcon(u64 program_id);
+bool WriteCustomIcon(u64 program_id, const std::vector<u8>& image);
 
 void OpenEdenFolder(const Common::FS::EdenPath& path);
 void OpenRootDataFolder();

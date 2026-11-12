@@ -10,11 +10,11 @@ import subprocess
 import sys
 import time
 
-sys.path.insert(0, "C:/Users/gui62/lichii-perf/mp")
+sys.path.insert(0, "C:/Users/gui62/giuray-work/mp")
 from rsp import call  # noqa: E402
 
 PY = "B:/msys64/ucrt64/bin/python.exe"
-TOOL = "B:/projetos/Lichii/tools/nx2/debug_mcp.py"
+TOOL = "B:/projetos/Giuray/tools/nx2/debug_mcp.py"
 CREATE = 0x372A70
 MGR_GOT = 0x4C7F3E0
 SCALE_GOT = 0x4C7E0B8
@@ -81,7 +81,7 @@ if not stop:
     print("no thread reached the breakpoint")
     sys.exit(1)
 saved = raw("g")
-open("C:/Users/gui62/lichii-perf/mp/spawn_saved_regs.txt", "w").write(saved)
+open("C:/Users/gui62/giuray-work/mp/spawn_saved_regs.txt", "w").write(saved)
 regs = bytearray(bytes.fromhex(saved))
 sp = struct.unpack_from("<Q", regs, 31 * 8)[0]
 print("stopped:", stop[:60], "sp", hex(sp))

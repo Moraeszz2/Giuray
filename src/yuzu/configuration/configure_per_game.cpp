@@ -36,6 +36,7 @@
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
 #include <QNetworkRequest>
+#include <QProgressDialog>
 #include <QPushButton>
 #include <QRegularExpression>
 #include <QStandardPaths>
@@ -60,6 +61,7 @@
 #include "qt_common/abstract/frontend.h"
 #include "qt_common/config/uisettings.h"
 #include "qt_common/qt_common.h"
+#include "qt_common/util/game.h"
 #include "qt_common/util/vk.h"
 #include "ui_configure_per_game.h"
 #include "yuzu/configuration/configuration_shared.h"
@@ -258,7 +260,7 @@ std::optional<std::string> HttpGetUrl(const std::string& full_url, DetectionBudg
     QNetworkRequest request(url);
     request.setAttribute(QNetworkRequest::RedirectPolicyAttribute,
                          QNetworkRequest::ManualRedirectPolicy);
-    request.setRawHeader("User-Agent", "Eden icon lookup");
+    request.setRawHeader("User-Agent", "Giuray icon lookup");
     request.setRawHeader("Accept-Encoding", "identity");
 
     std::string body;
@@ -390,16 +392,18 @@ ConfigurePerGame::ConfigurePerGame(QWidget* parent, u64 title_id_, const std::st
 
     ui->setupUi(this);
 
-    ui->tabWidget->addTab(addons_tab.get(), tr("Add-Ons"));
-    ui->tabWidget->addTab(system_tab.get(), tr("System"));
-    ui->tabWidget->addTab(cpu_tab.get(), tr("CPU"));
-    ui->tabWidget->addTab(graphics_tab.get(), tr("Graphics"));
-    ui->tabWidget->addTab(graphics_advanced_tab.get(), tr("Adv. Graphics"));
-    ui->tabWidget->addTab(graphics_extensions_tab.get(), tr("Ext. Graphics"));
-    ui->tabWidget->addTab(audio_tab.get(), tr("Audio"));
-    ui->tabWidget->addTab(input_tab.get(), tr("Input Profiles"));
-    ui->tabWidget->addTab(network_tab.get(), tr("Network"));
-    ui->tabWidget->addTab(applets_tab.get(), tr("Applets"));
+    // Each tab scrolls inside the dialog, so the dialog fits the screen (from origin's #1365).
+    using ConfigurationShared::ScrollTab;
+    ui->tabWidget->addTab(ScrollTab(addons_tab.get()), tr("Add-Ons"));
+    ui->tabWidget->addTab(ScrollTab(system_tab.get()), tr("System"));
+    ui->tabWidget->addTab(ScrollTab(cpu_tab.get()), tr("CPU"));
+    ui->tabWidget->addTab(ScrollTab(graphics_tab.get()), tr("Graphics"));
+    ui->tabWidget->addTab(ScrollTab(graphics_advanced_tab.get()), tr("Adv. Graphics"));
+    ui->tabWidget->addTab(ScrollTab(graphics_extensions_tab.get()), tr("Ext. Graphics"));
+    ui->tabWidget->addTab(ScrollTab(audio_tab.get()), tr("Audio"));
+    ui->tabWidget->addTab(ScrollTab(input_tab.get()), tr("Input Profiles"));
+    ui->tabWidget->addTab(ScrollTab(network_tab.get()), tr("Network"));
+    ui->tabWidget->addTab(ScrollTab(applets_tab.get()), tr("Applets"));
 
     setFocusPolicy(Qt::ClickFocus);
     setWindowTitle(tr("Properties"));
@@ -453,6 +457,7 @@ ConfigurePerGame::ConfigurePerGame(QWidget* parent, u64 title_id_, const std::st
     }
 
     LoadConfiguration();
+    ConfigurationShared::FitToScreen(this, QSize(1040, 760));
 }
 
 ConfigurePerGame::~ConfigurePerGame() {
@@ -573,7 +578,12 @@ void ConfigurePerGame::LoadConfiguration() {
     pending_nup_icon.clear();
 
     scene->clear();
-    if (!is_nup_file && control.second != nullptr) {
+    QPixmap custom_icon;
+    const auto custom_bytes = QtCommon::Game::ReadCustomIcon(title_id);
+    if (!custom_bytes.empty() &&
+        custom_icon.loadFromData(custom_bytes.data(), static_cast<u32>(custom_bytes.size()))) {
+        UpdateIconPreview(custom_icon);
+    } else if (!is_nup_file && control.second != nullptr) {
         QPixmap map;
         const auto bytes = control.second->ReadAllBytes();
         if (map.loadFromData(bytes.data(), static_cast<u32>(bytes.size()))) {
@@ -864,9 +874,22 @@ bool ConfigurePerGame::SaveNupMetadata(bool show_error) {
     if (!is_nup_file) {
         return true;
     }
+    // The icon is kept outside the archive, so changing it is instant.
+    if (nup_icon_modified) {
+        if (!QtCommon::Game::WriteCustomIcon(title_id, pending_nup_icon)) {
+            if (show_error) {
+                QMessageBox::warning(this, tr("Update NUP Metadata"),
+                                     tr("Failed to save the game icon."));
+            }
+            return false;
+        }
+        nup_icon_modified = false;
+        UISettings::values.is_game_list_reload_pending.exchange(true);
+    }
+
     const std::string new_title = ui->display_name->text().trimmed().toStdString();
     const bool title_changed = new_title != initial_nup_title;
-    if (!title_changed && !nup_icon_modified) {
+    if (!title_changed) {
         return true;
     }
     if (system.IsPoweredOn()) {
@@ -880,13 +903,30 @@ bool ConfigurePerGame::SaveNupMetadata(bool show_error) {
     if (title_changed) {
         update.title_name = new_title;
     }
-    if (nup_icon_modified) {
-        update.icon = pending_nup_icon;
-    }
-    std::string error;
     addons_tab->SetFile(nullptr);
     file.reset();
-    const auto res = FileSys::Nup::UpdateMetadata(file_path, update, &error);
+
+    // Updating the metadata copies the whole archive (tens of GB for a Switch 2 game), so it runs
+    // off the UI thread behind a progress dialog instead of freezing the window.
+    QProgressDialog progress(tr("Saving the name into the NUP file.\nThis copies the whole file "
+                                "and can take several minutes."),
+                             QString{}, 0, 0, this);
+    progress.setWindowTitle(tr("Update NUP Metadata"));
+    progress.setWindowModality(Qt::WindowModal);
+    progress.setCancelButton(nullptr);
+    progress.setMinimumDuration(0);
+    progress.show();
+    QFutureWatcher<std::pair<FileSys::Nup::PackResult, std::string>> watcher;
+    QEventLoop loop;
+    connect(&watcher, &QFutureWatcherBase::finished, &loop, &QEventLoop::quit);
+    watcher.setFuture(QtConcurrent::run([path = file_path, update] {
+        std::string message;
+        const auto result = FileSys::Nup::UpdateMetadata(path, update, &message);
+        return std::make_pair(result, std::move(message));
+    }));
+    loop.exec();
+    progress.close();
+    const auto [res, error] = watcher.result();
     file = Core::GetGameFileFromPath(system.GetFilesystem(),
                                    Common::FS::PathToUTF8String(file_path));
     addons_tab->SetFile(file);
@@ -899,7 +939,6 @@ bool ConfigurePerGame::SaveNupMetadata(bool show_error) {
         return false;
     }
     initial_nup_title = new_title;
-    nup_icon_modified = false;
     if (file) {
         ui->display_size->setText(QtCommon::ReadableByteSize(file->GetSize()));
     }

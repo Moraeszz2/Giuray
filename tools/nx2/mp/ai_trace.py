@@ -6,14 +6,14 @@ import struct
 import subprocess
 import sys
 
-sys.path.insert(0, "C:/Users/gui62/lichii-perf/mp")
+sys.path.insert(0, "C:/Users/gui62/giuray-work/mp")
 from rsp import call  # noqa: E402
 
 PY = "B:/msys64/ucrt64/bin/python.exe"
 base = int(sys.argv[1], 16)
 actor = int(sys.argv[2], 16)
 limit = int(sys.argv[3]) if len(sys.argv) > 3 else 40
-sites = subprocess.run([PY, "-I", "B:/projetos/Lichii/tools/nx2/mp/vcalls.py", "0xe8"],
+sites = subprocess.run([PY, "-I", "B:/projetos/Giuray/tools/nx2/mp/vcalls.py", "0xe8"],
                        capture_output=True, text=True).stdout.split()[5:]
 sites = [int(s.lstrip("+"), 16) for s in sites if s.startswith("+")]
 

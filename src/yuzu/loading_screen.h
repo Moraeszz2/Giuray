@@ -7,7 +7,9 @@
 #pragma once
 
 #include <chrono>
+#include <deque>
 #include <memory>
+#include <utility>
 #include <QString>
 #include <QWidget>
 #include <QtGlobal>
@@ -31,6 +33,7 @@ enum class LoadCallbackStage;
 class QBuffer;
 class QByteArray;
 class QGraphicsOpacityEffect;
+class QLabel;
 class QMovie;
 class QPropertyAnimation;
 class QPushButton;
@@ -85,13 +88,16 @@ private:
     ::Common::unordered_map<VideoCore::LoadCallbackStage, const char*> progressbar_style;
     ::Common::unordered_map<VideoCore::LoadCallbackStage, QString> stage_translations;
 
-    // newly generated shaders are added to the end of the file, so when loading and compiling
-    // shaders, it will start quickly but end slow if new shaders were added since previous launch.
-    // These variables are used to detect the change in speed so we can generate an ETA
-    bool slow_shader_compile_start = false;
-    std::chrono::steady_clock::time_point slow_shader_start;
-    std::chrono::steady_clock::time_point previous_time;
-    std::size_t slow_shader_first_value = 0;
+    /// The time left in this stage, from the rate over the last seconds (the rate changes: cached
+    /// shaders load fast, new ones build slowly), smoothed so the text does not jump.
+    QString EstimateRemaining(std::size_t value, std::size_t total);
+
+    QLabel* game_label = nullptr;
+    std::chrono::steady_clock::time_point stage_start;
+    std::deque<std::pair<std::chrono::steady_clock::time_point, std::size_t>> samples;
+    std::chrono::steady_clock::time_point last_estimate;
+    double smoothed_seconds = -1.0;
+    QString estimate_text;
 };
 
 #if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)

@@ -45,7 +45,7 @@
 #include "video_core/vulkan_common/vulkan_memory_allocator.h"
 #include "video_core/vulkan_common/vulkan_surface.h"
 #include "video_core/vulkan_common/vulkan_wrapper.h"
-#ifdef EGLANTINE_STREAMLINE
+#ifdef GIURAY_STREAMLINE
 #include "video_core/renderer_vulkan/vk_streamline_dlss.h"
 #include "video_core/vulkan_common/streamline.h"
 #endif
@@ -165,7 +165,7 @@ try
     , gpu(gpu_)
     , library(OpenLibrary(context.get()))
     , dld()
-#ifdef EGLANTINE_STREAMLINE
+#ifdef GIURAY_STREAMLINE
     , streamline_started(Streamline::Start())
 #endif
     // Create raw Vulkan instance first
@@ -508,7 +508,7 @@ void RendererVulkan::RenderAppletCaptureLayer(
                             CaptureFormat, CaptureHdrPresent());
 }
 
-#ifdef EGLANTINE_STREAMLINE
+#ifdef GIURAY_STREAMLINE
 VideoCore::DlssStatus RendererVulkan::GetDlssStatus() const {
     return StreamlineDlssUpscaler::Status();
 }

@@ -248,7 +248,7 @@ struct ColorConsoleBackend final : public Backend {
 struct FileBackend final : public Backend {
     explicit FileBackend(const std::filesystem::path filename) noexcept {
         // Move a log over its ".old.txt" copy. The rename replaces the copy atomically, and fails
-        // if the log is still open elsewhere (e.g. in a Lichii process that hasn't exited yet).
+        // if the log is still open elsewhere (e.g. in a Giuray process that hasn't exited yet).
         // A log that can't even be checked counts as a failure, so it is never truncated.
         const auto rotate = [](const std::filesystem::path& path) {
             std::error_code ec;
@@ -259,7 +259,7 @@ struct FileBackend final : public Backend {
             std::filesystem::rename(path, old_path, ec);
             return !ec;
         };
-        // If the log can't be moved, write this session to a second log (eden_log_2.txt) so that
+        // If the log can't be moved, write this session to a second log (giuray_log_2.txt) so that
         // the previous session is kept and this one still gets the full size limit. If that one
         // can't be moved either, append to it.
         auto path = filename;

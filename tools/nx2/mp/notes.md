@@ -63,7 +63,7 @@
 - Dark Link as puppet keeps its own boss AI animations (swings at Link) while its body falls far
   away (spawned off the floor): harmless, still drawn at the remote player's place.
 - Two ways forward: (1) find the ActionSeq "play AS by name" call the AINB AS nodes make
-  (ExecuteASOneShot..., like the actor create call) and drive Dark Link's AS from Lichii;
+  (ExecuteASOneShot..., like the actor create call) and drive Dark Link's AS from Giuray;
   (2) copy Link's skeleton pose (bone matrices) onto Dark Link each frame, which needs a hook
   between the animation update and the draw.
 - AS play node: ExecuteASPlay (execute main+0x2001D0) builds {AS component ([[node+8]+8]+0x1F0),
@@ -71,7 +71,7 @@
   seen in Castle Town playing "Push_L_ByNpc". Dark Link's own AINB AS nodes did not run while
   it fought; its AINB ran SelectorDarkLinkBackFlip, so its animation comes from its ActionSeq
   (BSA) state machine, not AINB AS nodes.
-- AS play from Lichii's side works: call_fn.py runs main+0x2022A0(request) on a caught game
+- AS play from Giuray's side works: call_fn.py runs main+0x2022A0(request) on a caught game
   thread. Request (0x30 bytes): +0x00 actor (it walks [actor+0x270]...), +0x08 AS name char*,
   +0x10 u32 0, +0x14 blend frames (float), +0x18 -1.0 -1.0, +0x20 u8 0, +0x28 node (0 is fine).
   Dark Link accepts "Wait", "Move", "Jump" (returns 1); "Run", "Walk", "Dash", "Idle",

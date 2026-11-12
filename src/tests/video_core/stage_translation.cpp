@@ -415,7 +415,7 @@ TEST_CASE("Compute SPIR-V emitted by a job matches the GPU thread's", "[stage_tr
         const std::vector<u32> expected = Shader::Backend::SPIRV::EmitSPIRV(profile, here);
 
         // With it the program and its pools move into the CPU stage of the pipeline's job; with
-        // EDEN_NX2_PERF_VERIFY the GPU thread's SPIR-V goes along as the reference
+        // GIURAY_NX2_PERF_VERIFY the GPU thread's SPIR-V goes along as the reference
         for (const bool verify : {false, true}) {
             struct Deferred {
                 std::shared_ptr<ShaderPools> pools;

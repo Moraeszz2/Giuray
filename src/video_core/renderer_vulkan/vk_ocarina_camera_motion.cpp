@@ -21,7 +21,7 @@
 #include "video_core/host_shaders/ocarina_dlss_bias_comp_spv.h"
 #include "video_core/host_shaders/ocarina_dlss_effects_comp_spv.h"
 #include "video_core/renderer_vulkan/vk_master_semaphore.h"
-#ifdef EGLANTINE_STREAMLINE
+#ifdef GIURAY_STREAMLINE
 #include "video_core/renderer_vulkan/vk_streamline_dlss.h"
 #include "video_core/vulkan_common/streamline.h"
 #endif
@@ -485,7 +485,7 @@ public:
             };
             cmd.PipelineBarrier(VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
                                 0, after);
-            static const bool trace = std::getenv("EDEN_NX2_DLSS_CONTRACT_TRACE") != nullptr;
+            static const bool trace = std::getenv("GIURAY_NX2_DLSS_CONTRACT_TRACE") != nullptr;
             if (trace || reset || frame % 120 == 0) {
                 LOG_INFO(Render_Vulkan, "Ocarina temporal writeback frame={} history_reset={}", frame, reset);
             }
@@ -707,7 +707,7 @@ struct OcarinaUpscaler::Impl {
           motion_pass{device, scheduler, pool_},
           color_pass{device, scheduler, pool_},
           output_pass{device, scheduler, pool_, OCARINA_DLSS_OUTPUT_COMP_SPV} {
-#ifdef EGLANTINE_STREAMLINE
+#ifdef GIURAY_STREAMLINE
         if (backend == VideoCommon::OcarinaUpscaleBackend::Dlss) {
             dlss = std::make_unique<StreamlineDlssUpscaler>(device, scheduler, allocator);
             return;
@@ -735,7 +735,7 @@ struct OcarinaUpscaler::Impl {
     ComputePassDescriptorQueue& queue;
     MemoryAllocator& allocator;
     DescriptorPool& pool;
-#ifdef EGLANTINE_STREAMLINE
+#ifdef GIURAY_STREAMLINE
     std::unique_ptr<StreamlineDlssUpscaler> dlss;
 #endif
     std::unique_ptr<Fsr3Upscaler> fsr;
@@ -751,20 +751,20 @@ struct OcarinaUpscaler::Impl {
     }
 
     bool Failed() const {
-#ifdef EGLANTINE_STREAMLINE
+#ifdef GIURAY_STREAMLINE
         return dlss ? dlss->Failed() : !fsr;
 #else
         return !fsr;
 #endif
     }
     VkSampler PointSampler() const {
-#ifdef EGLANTINE_STREAMLINE
+#ifdef GIURAY_STREAMLINE
         if (dlss) return dlss->PointSampler();
 #endif
         return fsr->PointSampler();
     }
     VkImageView OutputView() const {
-#ifdef EGLANTINE_STREAMLINE
+#ifdef GIURAY_STREAMLINE
         if (dlss) return dlss->OutputView();
 #endif
         if (output_fsr4) return fsr4->OutputView();
@@ -991,7 +991,7 @@ bool OcarinaUpscaler::Record(VkImageView color, VkImageView depth, VkImageView t
     const bool reset = !state.last_frame || frame != *state.last_frame + 1 ||
                        !std::ranges::equal(previous, state.last_view_projection,
                                            [](f32 a, f32 b) { return std::abs(a - b) < 0.001f; });
-#ifdef EGLANTINE_STREAMLINE
+#ifdef GIURAY_STREAMLINE
     if (state.dlss && !state.dlss->Upscale({
             .color = {*resources.color_view, *resources.color, LIVE_COLOR_FORMAT, COLOR_RANGE,
                       VK_IMAGE_ASPECT_COLOR_BIT},
@@ -1035,7 +1035,7 @@ bool OcarinaUpscaler::Record(VkImageView color, VkImageView depth, VkImageView t
         });
         if (used_fsr4) {
             state.last_evaluation = now;
-            static const bool trace = std::getenv("EDEN_NX2_DLSS_CONTRACT_TRACE") != nullptr;
+            static const bool trace = std::getenv("GIURAY_NX2_DLSS_CONTRACT_TRACE") != nullptr;
             if (trace || frame % 120 == 0 || reset) {
                 LOG_INFO(Render_Vulkan,
                          "Ocarina FSR 4 evaluated frame={} {}x{} -> {}x{} reset={} effects={} "
@@ -1071,7 +1071,7 @@ bool OcarinaUpscaler::Record(VkImageView color, VkImageView depth, VkImageView t
             .vertical_fov = 2.0f * std::atan(1.0f / projection_y),
         });
         state.last_evaluation = now;
-        static const bool trace = std::getenv("EDEN_NX2_DLSS_CONTRACT_TRACE") != nullptr;
+        static const bool trace = std::getenv("GIURAY_NX2_DLSS_CONTRACT_TRACE") != nullptr;
         if (trace || frame % 120 == 0 || fsr_reset) {
             LOG_INFO(Render_Vulkan,
                      "Ocarina FSR 3.1 evaluated frame={} {}x{} -> {}x{} reset={} effects={} "
@@ -1099,9 +1099,9 @@ bool OcarinaUpscaler::Record(VkImageView color, VkImageView depth, VkImageView t
     return true;
 }
 VideoCommon::OcarinaUpscaleBackend ResolveOcarinaUpscaler(const Device& device) {
-    const char* value = std::getenv("EDEN_NX2_DLSS_REPLACEMENT");
+    const char* value = std::getenv("GIURAY_NX2_DLSS_REPLACEMENT");
     bool dlss_available = false;
-#ifdef EGLANTINE_STREAMLINE
+#ifdef GIURAY_STREAMLINE
     dlss_available = Streamline::IsDlssAvailable();
 #endif
     const auto backend = VideoCommon::SelectOcarinaUpscaler(

@@ -800,10 +800,10 @@ private:
         }
         keep.memory_writes.emplace_back(device_addr, device_addr + size);
     }
-    /// EDEN_NX2_UBO_KEEP_VERIFY=1: binds what a keep would skip the original way and logs where
+    /// GIURAY_NX2_UBO_KEEP_VERIFY=1: binds what a keep would skip the original way and logs where
     /// guest memory changed.
     const bool ubo_keep_verify = [] {
-        const char* const value = std::getenv("EDEN_NX2_UBO_KEEP_VERIFY");
+        const char* const value = std::getenv("GIURAY_NX2_UBO_KEEP_VERIFY");
         return value != nullptr && value[0] == '1';
     }();
     struct UniformKeep {
@@ -833,10 +833,10 @@ private:
     /// dispatch, the fencing thread holding the buffer cache while it wrote them), while its CPU
     /// read GPU-written memory at most 64 times in 200 s (counted with reactive flushing) and
     /// the native MME's DMA reads never touched those pages. Without them a fence costs ~1 us
-    /// instead of ~5 and draw setup ~7% less. EDEN_NX2_BUFFER_DOWNLOADS=0/1 forces it.
+    /// instead of ~5 and draw setup ~7% less. GIURAY_NX2_BUFFER_DOWNLOADS=0/1 forces it.
     bool AsyncBufferDownloads() const {
         static const int forced = [] {
-            const char* value = std::getenv("EDEN_NX2_BUFFER_DOWNLOADS");
+            const char* value = std::getenv("GIURAY_NX2_BUFFER_DOWNLOADS");
             return value == nullptr ? -1 : (value[0] == '0' ? 0 : 1);
         }();
         if (forced >= 0) {
@@ -857,7 +857,7 @@ private:
     /// of a large buffer would otherwise copy the whole buffer back at every fence.
     void QueueFenceDownload(DAddr device_addr, u64 size) {
         static const bool exact = [] {
-            const char* value = std::getenv("EDEN_NX2_EXACT_PREFLUSH");
+            const char* value = std::getenv("GIURAY_NX2_EXACT_PREFLUSH");
             return value == nullptr || value[0] != '0';
         }();
         if (AsyncBufferDownloads()) {
@@ -920,7 +920,7 @@ private:
     PendingCpuWrites pending_cpu_writes;
     std::optional<Async_Buffer> current_buffer;
 
-    /// EDEN_NX2_READ_CHECK (1 in n read downloads): what a synchronous flush of
+    /// GIURAY_NX2_READ_CHECK (1 in n read downloads): what a synchronous flush of
     /// the read would have copied, copied again in the same submission, to compare guest memory
     /// with once the download is written.
     struct ReadCheck {
@@ -946,7 +946,7 @@ private:
         Common::RangeSet<DAddr> own;
     };
     struct ReadCheckTotals {
-        u64 every{};      ///< Tests: check 1 in `every` read downloads, over EDEN_NX2_READ_CHECK
+        u64 every{};      ///< Tests: check 1 in `every` read downloads, over GIURAY_NX2_READ_CHECK
         u64 next{};       ///< Read downloads seen, for the sampling
         u64 checked{};    ///< Read downloads compared
         u64 compared{};   ///< Bytes compared
@@ -991,7 +991,7 @@ private:
         /// No longer GPU-modified once written: a newer GPU write (MarkWrittenBuffer) or value in
         /// guest memory takes its bytes out.
         Common::RangeSet<DAddr> clean_ranges;
-        std::unique_ptr<ReadCheck> check; ///< EDEN_NX2_READ_CHECK
+        std::unique_ptr<ReadCheck> check; ///< GIURAY_NX2_READ_CHECK
         /// Recorded right after a GPU write, before any read (RecordEarlyDownloads)
         bool early{};
     };
@@ -1001,7 +1001,7 @@ private:
     /// their way, which later reads wait for rather than download again.
     Common::RangeSet<DAddr> read_download_ranges;
 
-    /// EDEN_NX2_READ_CHECK: the bytes early downloads brought to a page's guest memory, and
+    /// GIURAY_NX2_READ_CHECK: the bytes early downloads brought to a page's guest memory, and
     /// what guest memory held there as they landed, until newer downloaded bytes or values replace
     /// them. The read they serve compares them with the GPU's bytes then: a GPU write in between
     /// that took nothing out of them shows.
@@ -1010,7 +1010,7 @@ private:
         std::vector<u8> as_landed; ///< The page, DEVICE_PAGESIZE bytes
     };
     std::unordered_map<DAddr, EarlyLanded> early_landed;
-    /// EDEN_NX2_READ_CHECK: an upload sends guest memory's bytes to the buffer. Where they
+    /// GIURAY_NX2_READ_CHECK: an upload sends guest memory's bytes to the buffer. Where they
     /// are no longer what an early download landed, the guest wrote there since, and landed bytes
     /// are no longer GPU-modified, so that write may never have reached WriteMemory. The buffer
     /// then holds it while guest memory may hold the landed value again: no read compares those
@@ -1084,7 +1084,7 @@ private:
     std::vector<MultiRangeSegment> graphics_segments;
     std::vector<MultiRangeSegment> compute_segments;
     u64 frame_tick = 0;
-    /// EDEN_NX2_TABLE_POINTER_TRACE: last table entry and size bound per table pointer slot.
+    /// GIURAY_NX2_TABLE_POINTER_TRACE: last table entry and size bound per table pointer slot.
     std::unordered_map<u64, std::pair<GPUVAddr, u32>> traced_table_pointers;
     u64 total_used_memory = 0;
     u64 buffer_bytes = 0; ///< The buffers' own size (total_used_memory may be the device's)

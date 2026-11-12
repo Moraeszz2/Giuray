@@ -6,7 +6,7 @@ import json
 import subprocess
 
 PY = "B:/msys64/ucrt64/bin/python.exe"
-TOOL = "B:/projetos/Lichii/tools/nx2/debug_mcp.py"
+TOOL = "B:/projetos/Giuray/tools/nx2/debug_mcp.py"
 
 
 def dbg(method, params):
@@ -49,4 +49,4 @@ for round_index in range(3):
         print(f"round {round_index}: {len(same)} of the first {len(values)} keep their standing value",
               flush=True)
     standing = values
-json.dump(standing, open("C:/Users/gui62/lichii-perf/mp/anim_candidates.json", "w"), indent=1)
+json.dump(standing, open("C:/Users/gui62/giuray-work/mp/anim_candidates.json", "w"), indent=1)

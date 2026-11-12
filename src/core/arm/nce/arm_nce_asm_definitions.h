@@ -13,15 +13,15 @@
 // around these includes, since glibc headers also look at __ASSEMBLER__.
 #ifndef __ASSEMBLER__
 #define __ASSEMBLER__
-#define EDEN_NCE_UNDEF_ASSEMBLER
+#define GIURAY_NCE_UNDEF_ASSEMBLER
 #endif
 
 #include <asm-generic/signal.h>
 #include <asm-generic/unistd.h>
 
-#ifdef EDEN_NCE_UNDEF_ASSEMBLER
+#ifdef GIURAY_NCE_UNDEF_ASSEMBLER
 #undef __ASSEMBLER__
-#undef EDEN_NCE_UNDEF_ASSEMBLER
+#undef GIURAY_NCE_UNDEF_ASSEMBLER
 #endif
 
 #define ReturnToRunCodeByExceptionLevelChangeSignal SIGUSR2

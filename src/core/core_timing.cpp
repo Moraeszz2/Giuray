@@ -50,7 +50,7 @@ constexpr u32 CpuClockTargetMhz(Settings::CpuClock clock) {
 
 namespace {
 
-// One second of the timer thread's waits, for EDEN_NX2_HOSTTIMING_STATS.
+// One second of the timer thread's waits, for GIURAY_NX2_HOSTTIMING_STATS.
 struct HostWaitWindow {
     s64 start{};
     std::optional<u64> cpu_start;
@@ -130,7 +130,7 @@ void CoreTiming::Initialize(std::function<void()>&& on_thread_init_) {
     on_thread_init = std::move(on_thread_init_);
     event_fifo_id = 0;
     cpu_ticks = 0;
-    if (const char* stats = std::getenv("EDEN_NX2_HOSTTIMING_STATS")) {
+    if (const char* stats = std::getenv("GIURAY_NX2_HOSTTIMING_STATS")) {
         host_wait_stats = std::strtol(stats, nullptr, 10) != 0;
     }
     if (is_multicore) {

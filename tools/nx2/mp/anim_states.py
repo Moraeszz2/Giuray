@@ -8,12 +8,12 @@ import subprocess
 import sys
 import time
 
-sys.path.insert(0, "C:/Users/gui62/lichii-perf/mp")
+sys.path.insert(0, "C:/Users/gui62/giuray-work/mp")
 from rsp import call  # noqa: E402
 
 PY = "B:/msys64/ucrt64/bin/python.exe"
-TOOL = "B:/projetos/Lichii/tools/nx2/debug_mcp.py"
-candidates = [int(a, 16) for a in json.load(open("C:/Users/gui62/lichii-perf/mp/anim_candidates.json"))]
+TOOL = "B:/projetos/Giuray/tools/nx2/debug_mcp.py"
+candidates = [int(a, 16) for a in json.load(open("C:/Users/gui62/giuray-work/mp/anim_candidates.json"))]
 
 
 def read_all():
@@ -54,4 +54,4 @@ print(len(rows), "words with one standing value and other values walking and run
 for a, s, w, r in rows[:60]:
     print(f"{a:#x}: stand {s:#010x} walk {w:#010x} run {r:#010x}{'  (walk == run)' if w == r else ''}")
 json.dump([{"address": hex(a), "stand": s, "walk": w, "run": r} for a, s, w, r in rows],
-          open("C:/Users/gui62/lichii-perf/mp/anim_states.json", "w"), indent=1)
+          open("C:/Users/gui62/giuray-work/mp/anim_states.json", "w"), indent=1)

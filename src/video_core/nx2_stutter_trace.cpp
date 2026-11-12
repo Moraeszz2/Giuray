@@ -494,7 +494,7 @@ void SetCacheFile(std::string path) {
 
 void StartSession() {
     g_frame = {};
-    if (const char* const value = std::getenv("EDEN_NX2_STUTTER_DETAIL_MS")) {
+    if (const char* const value = std::getenv("GIURAY_NX2_STUTTER_DETAIL_MS")) {
         g_frame.detail_ms = std::strtod(value, nullptr);
     }
     {

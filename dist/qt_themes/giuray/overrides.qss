@@ -1,0 +1,170 @@
+/* ---------- Overlay dialogs (closing software, game messages, keyboard) ---------- */
+
+QDialog#OverlayDialog,
+QStackedWidget#stackedDialog {
+    background: rgba(6, 8, 14, 0.72);
+}
+
+QWidget#contentDialog,
+QWidget#contentRichDialog {
+    background: #121521;
+    border: 1px solid #262B3B;
+    border-radius: 12px;
+    margin: 0px;
+}
+
+QWidget#buttonsDialog,
+QWidget#buttonsRichDialog {
+    margin: 0px;
+    border-top: 1px solid #262B3B;
+}
+
+QWidget#contentDialog QLabel {
+    color: #F8F9FC;
+}
+
+QWidget#contentDialog QProgressBar#overlayBusy {
+    background-color: #1B1F2D;
+    border: none;
+    border-radius: 2px;
+}
+
+QWidget#contentDialog QProgressBar#overlayBusy::chunk {
+    background-color: #6366F1;
+    border-radius: 2px;
+}
+
+QWidget#contentDialog QLabel#label_title,
+QWidget#contentRichDialog QLabel#label_title_rich {
+    color: #A3A9BE;
+}
+
+QWidget#richDialog QTextBrowser {
+    color: #E6E8F0;
+}
+
+QDialog#OverlayDialog QPushButton {
+    color: #C7D2FE;
+    background: transparent;
+    border: none;
+    border-radius: 0px;
+    padding: 0px;
+    min-width: 0px;
+}
+
+QDialog#OverlayDialog QPushButton:focus,
+QDialog#OverlayDialog QPushButton:hover {
+    color: #FFFFFF;
+    background: rgba(99, 102, 241, 0.18);
+    border: none;
+    outline: none;
+}
+
+QDialog#OverlayDialog QPushButton:pressed {
+    color: #FFFFFF;
+    background: rgba(99, 102, 241, 0.32);
+    border: none;
+}
+
+QStackedWidget#topOSK {
+    background: rgba(6, 8, 14, 0.85);
+}
+
+QStackedWidget#bottomOSK {
+    background: #121521;
+}
+
+/* ---------- Console layout: navigation rail, carousel panel, settings categories ---------- */
+
+QFrame#NavSidebar {
+    background-color: #0B0D14;
+    border: none;
+    border-right: 1px solid #1B1F2D;
+}
+
+QFrame#NavSidebar QToolButton#NavButton {
+    color: #A3A9BE;
+    background: transparent;
+    border: none;
+    border-radius: 12px;
+    padding: 10px 2px 8px 2px;
+    font-size: 11px;
+}
+
+QFrame#NavSidebar QToolButton#NavButton:hover {
+    color: #F8F9FC;
+    background-color: #1B1F2D;
+}
+
+QFrame#NavSidebar QToolButton#NavButton:pressed {
+    background-color: #262B3B;
+}
+
+QFrame#NavSidebar QToolButton#NavButton[active="true"] {
+    color: #F8F9FC;
+    background-color: rgba(99, 102, 241, 0.18);
+}
+
+QFrame#NavSidebar QToolButton#NavButton:disabled {
+    color: #545B73;
+}
+
+QFrame#GameHero {
+    background-color: #0B0D14;
+    border: none;
+    border-top: 1px solid #1B1F2D;
+}
+
+QFrame#GameHero QLabel#GameHeroTitle {
+    color: #F8F9FC;
+    font-size: 24px;
+    font-weight: 700;
+}
+
+QFrame#GameHero QLabel#GameHeroDetails {
+    color: #A3A9BE;
+    font-size: 13px;
+}
+
+QFrame#GameHero QPushButton {
+    min-height: 40px;
+    min-width: 120px;
+    border-radius: 20px;
+    padding: 0px 24px;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+QFrame#GameHero QPushButton#GameHeroPlay {
+    min-width: 160px;
+}
+
+QListView#GameCarousel {
+    padding: 16px 24px;
+}
+
+QListWidget#selectorList,
+QTreeWidget#selectorList {
+    padding: 12px 8px;
+    min-width: 176px;
+}
+
+QListWidget#selectorList::item,
+QTreeWidget#selectorList::item {
+    color: #A3A9BE;
+    padding: 10px 14px;
+    margin: 1px 0px;
+    border-radius: 10px;
+}
+
+QListWidget#selectorList::item:hover,
+QTreeWidget#selectorList::item:hover {
+    color: #F8F9FC;
+    background-color: #1B1F2D;
+}
+
+QListWidget#selectorList::item:selected,
+QTreeWidget#selectorList::item:selected {
+    color: #F8F9FC;
+    background-color: rgba(99, 102, 241, 0.22);
+}

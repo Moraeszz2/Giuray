@@ -72,7 +72,7 @@ returns, and the game's simulation step are different measurements.
 ## Vblank catch-up and guest time
 
 `StartVsyncTimer` uses a separate CoreTiming looping event, normally at 60 Hz.
-`EDEN_NX2_VSYNC_HZ` can override that experimental event rate. Guest present intervals
+`GIURAY_NX2_VSYNC_HZ` can override that experimental event rate. Guest present intervals
 do not change its rate. The display-refresh query still reports 60 Hz.
 
 `CoreTiming::Advance` reschedules a looping event from its scheduled time, not its
@@ -98,7 +98,7 @@ The separate `SpeedLimiter::DoSpeedLimiting` returns immediately in multicore mo
 
 ## Additional read-only evidence in the next trace
 
-`EDEN_DKB_FRAME_TRACE=1` now also emits `DKB vsync` at most once per second per vi2
+`GIURAY_DKB_FRAME_TRACE=1` now also emits `DKB vsync` at most once per second per vi2
 session. The callback continues to signal the same events and returns the same result.
 All new fields are diagnostic only:
 
@@ -133,7 +133,7 @@ Upstream `nx2` was fetched and inspected at
   events. Retained, including the existing slot-binding behavior.
 - `0218eacfd560d0ce48b3ffe64d279ee85bbf1347` established the native Switch 2
   31.25 MHz guest counter. Already present and unchanged.
-- [Upstream PR 403](https://github.com/Djihads80/Eglantine/pull/403), head
+- Upstream PR 403, head
   `8f70204825c2ea7fb91d86fac196ad93c22e885d`, was merged as
   `5ae14067e339395275461a725bbcbb8f7c41b56c` on November 4, 2026. It patches
   Mario Kart World's own mode selection and frame-time measurement, then selects
@@ -152,7 +152,7 @@ this investigation.
 
 Before the next upstream merge, the atomic-and-pacing tree built both `yuzu-cmd`
 and `tests` with Clang 20 and Ninja using all eight available cores. All 496 test
-cases passed with frame tracing disabled and with `EDEN_DKB_FRAME_TRACE=1`.
+cases passed with frame tracing disabled and with `GIURAY_DKB_FRAME_TRACE=1`.
 The combined atomic/pacing filter passed 10 cases and 13,800 assertions.
 
 The remaining simulation-speed claim needs a trace tied to a clearly identified

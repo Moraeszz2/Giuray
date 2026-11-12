@@ -149,9 +149,9 @@ Result SetUnsafeLimit(Core::System& system, uint64_t limit) {
     R_THROW(ResultNotImplemented);
 }
 
-// EDEN_NX2_MEM_TRACE: log the heap and physical memory requests of a title (diagnostics).
+// GIURAY_NX2_MEM_TRACE: log the heap and physical memory requests of a title (diagnostics).
 static bool MemTrace() {
-    static const bool trace = std::getenv("EDEN_NX2_MEM_TRACE") != nullptr;
+    static const bool trace = std::getenv("GIURAY_NX2_MEM_TRACE") != nullptr;
     return trace;
 }
 

@@ -230,7 +230,7 @@ void ConfigureGraphics::Setup(const ConfigurationShared::Builder& builder) {
             continue;
         }
 #endif
-#ifndef EGLANTINE_STREAMLINE
+#ifndef GIURAY_STREAMLINE
         // Only builds with NVIDIA Streamline (Windows) can use it.
         if (setting->Id() == Settings::values.nvidia_dlss.Id() ||
             setting->Id() == Settings::values.nvidia_dlss_quality.Id() ||
@@ -363,7 +363,7 @@ void ConfigureGraphics::Setup(const ConfigurationShared::Builder& builder) {
 
             hold_graphics.emplace(setting->Id(), widget);
 #endif
-#ifdef EGLANTINE_STREAMLINE
+#ifdef GIURAY_STREAMLINE
         } else if (setting->Id() == Settings::values.nvidia_dlss.Id()) {
             nvidia_dlss_checkbox = widget->checkbox;
             // NVIDIA's files and a download button under the checkbox.

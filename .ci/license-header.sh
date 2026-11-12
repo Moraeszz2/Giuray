@@ -8,7 +8,7 @@ EXCLUDE_FILES="CPM.cmake CPMUtil.cmake GetSCMRev.cmake renderdoc_app.h tools/cpm
 
 # license header constants, please change when needed :))))
 YEAR=$(date "+%Y")
-HOLDER="Eden Emulator Project"
+HOLDER="Giuray"
 LICENSE="GPL-3.0-or-later"
 
 usage() {

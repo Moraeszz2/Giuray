@@ -72,7 +72,7 @@ static void PrintHelp(const char* argv0) {
 }
 
 static void PrintVersion() {
-    LOG_INFO(Network, "Eden dedicated room {} {} Libnetwork: {}", Common::g_scm_branch,
+    LOG_INFO(Network, "Giuray dedicated room {} {} Libnetwork: {}", Common::g_scm_branch,
              Common::g_scm_desc, Network::network_version);
 }
 
@@ -349,7 +349,7 @@ void LaunchRoom(int argc, char** argv, bool called_by_option) {
             std::make_unique<WebService::VerifyUserJWT>(Settings::values.web_api_url.GetValue());
 #else
         LOG_INFO(Network,
-                 "Eden Web Services is not available with this build: validation is disabled.");
+                 "Web services are not available with this build: validation is disabled.");
         verify_backend = std::make_unique<Network::VerifyUser::NullBackend>();
 #endif
     } else {

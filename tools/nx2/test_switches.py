@@ -17,7 +17,7 @@ class SwitchDiscovery(unittest.TestCase):
         self.root = pathlib.Path(self.tmp.name)
         self.bin = self.root / "mount/usr/bin"
         self.bin.mkdir(parents=True)
-        self.config = self.root / "config/lichii"
+        self.config = self.root / "config/giuray"
         self.config.mkdir(parents=True)
         source = self.root / "probe.cpp"
         source.write_text('''#include "yuzu/nx2_switches.h"
@@ -29,18 +29,18 @@ std::filesystem::path GetDataDirectory(const std::string&) {
 }
 int main(int argc, char** argv) {
     LoadNx2Switches(argv[0]);
-    const char* value = std::getenv(argc > 1 ? argv[1] : "EDEN_NX2_PRELOAD_ALL_PIPELINES");
+    const char* value = std::getenv(argc > 1 ? argv[1] : "GIURAY_NX2_PRELOAD_ALL_PIPELINES");
     std::cout << (value ? value : "unset");
 }
 ''')
-        subprocess.run([os.environ.get("CXX", "c++"), "-std=c++20", "-Wall", "-Wextra", "-Werror", "-I", str(ROOT / "src"), str(source), "-o", str(self.bin / "lichii")], check=True)
+        subprocess.run([os.environ.get("CXX", "c++"), "-std=c++20", "-Wall", "-Wextra", "-Werror", "-I", str(ROOT / "src"), str(source), "-o", str(self.bin / "giuray")], check=True)
 
     def tearDown(self):
         self.tmp.cleanup()
 
-    def run_probe(self, executable, name="EDEN_NX2_PRELOAD_ALL_PIPELINES", **env):
+    def run_probe(self, executable, name="GIURAY_NX2_PRELOAD_ALL_PIPELINES", **env):
         clean = os.environ.copy()
-        clean.pop("EDEN_NX2_PRELOAD_ALL_PIPELINES", None)
+        clean.pop("GIURAY_NX2_PRELOAD_ALL_PIPELINES", None)
         clean.pop(name, None)
         clean.pop("APPIMAGE", None)
         clean["XDG_CONFIG_HOME"] = str(self.config.parent)
@@ -50,72 +50,72 @@ int main(int argc, char** argv) {
     def test_untrusted_sidecars_cannot_set_host_environment(self):
         outer = self.root / "app"
         outer.mkdir()
-        image = outer / "Lichii.AppImage"
+        image = outer / "Giuray.AppImage"
         image.touch()
         forbidden = ("LD_PRELOAD", "LD_LIBRARY_PATH", "LIBVULKAN_PATH", "QT_PLUGIN_PATH",
                      "PATH", "HOME", "XDG_CONFIG_HOME", "YUZU_DO_STARTUP_CHECKS",
-                     "EDEN_STREAMLINE_DIR")
+                     "GIURAY_STREAMLINE_DIR")
         for folder in (self.bin, outer):
             sidecar = folder / "nx2_switches.txt"
             sidecar.write_text("".join(f"{name}=/untrusted\n" for name in forbidden))
             for name in forbidden:
                 with self.subTest(folder=folder, name=name):
                     expected = str(self.config.parent) if name == "XDG_CONFIG_HOME" else "unset"
-                    self.assertEqual(self.run_probe(self.bin / "lichii", name, APPIMAGE=str(image)), expected)
+                    self.assertEqual(self.run_probe(self.bin / "giuray", name, APPIMAGE=str(image)), expected)
             sidecar.unlink()
 
     def test_diagnostics_and_explicit_user_environment(self):
-        supported = ("EDEN_NX2_PRELOAD_ALL_PIPELINES", "EDEN_DKB_FRAME_TRACE",
-                     "EDEN_DKB_INDIRECT_READBACK", "EDEN_NATIVE_DRAW_CAPTURE",
-                     "EDEN_NATIVE_DRAW_DIAGNOSTICS", "EDEN_NATIVE_FRAME_CAPTURE",
-                     "EDEN_NATIVE_SHADER_OVERRIDE_DIR", "EDEN_PUNCH_HOLE",
-                     "EDEN_STARFOX_WINDOW_TRACE", "EDEN_VI2_MAX_RESOLUTION_MODE",
-                     "EGLANTINE_EXPERIMENTAL_STATIC_VERTEX_REPACK", "EGLANTINE_TEST_VERTEX_REPACK")
+        supported = ("GIURAY_NX2_PRELOAD_ALL_PIPELINES", "GIURAY_DKB_FRAME_TRACE",
+                     "GIURAY_DKB_INDIRECT_READBACK", "GIURAY_NATIVE_DRAW_CAPTURE",
+                     "GIURAY_NATIVE_DRAW_DIAGNOSTICS", "GIURAY_NATIVE_FRAME_CAPTURE",
+                     "GIURAY_NATIVE_SHADER_OVERRIDE_DIR", "GIURAY_PUNCH_HOLE",
+                     "GIURAY_STARFOX_WINDOW_TRACE", "GIURAY_VI2_MAX_RESOLUTION_MODE",
+                     "GIURAY_EXPERIMENTAL_STATIC_VERTEX_REPACK", "GIURAY_TEST_VERTEX_REPACK")
         (self.bin / "nx2_switches.txt").write_text("".join(f"{name}=1\n" for name in supported))
         for name in supported:
             with self.subTest(name=name):
-                self.assertEqual(self.run_probe(self.bin / "lichii", name), "1")
-                self.assertEqual(self.run_probe(self.bin / "lichii", name, **{name: "2"}), "2")
-        (self.config / "nx2_switches.txt").write_text("EDEN_STREAMLINE_DIR=/trusted\n")
-        self.assertEqual(self.run_probe(self.bin / "lichii", "EDEN_STREAMLINE_DIR"), "/trusted")
+                self.assertEqual(self.run_probe(self.bin / "giuray", name), "1")
+                self.assertEqual(self.run_probe(self.bin / "giuray", name, **{name: "2"}), "2")
+        (self.config / "nx2_switches.txt").write_text("GIURAY_STREAMLINE_DIR=/trusted\n")
+        self.assertEqual(self.run_probe(self.bin / "giuray", "GIURAY_STREAMLINE_DIR"), "/trusted")
 
     def test_invalid_config_base_does_not_search_cwd(self):
-        cwd_config = self.root / "lichii"
+        cwd_config = self.root / "giuray"
         cwd_config.mkdir()
-        (cwd_config / "nx2_switches.txt").write_text("EDEN_NX2_PRELOAD_ALL_PIPELINES=99\n")
+        (cwd_config / "nx2_switches.txt").write_text("GIURAY_NX2_PRELOAD_ALL_PIPELINES=99\n")
         for base in ("", "."):
             with self.subTest(base=base):
-                self.assertEqual(self.run_probe(self.bin / "lichii", XDG_CONFIG_HOME=base), "unset")
+                self.assertEqual(self.run_probe(self.bin / "giuray", XDG_CONFIG_HOME=base), "unset")
 
     def test_elf_path_symlink_and_precedence(self):
-        (self.root / "nx2_switches.txt").write_text("EDEN_NX2_PRELOAD_ALL_PIPELINES=99\n")
-        self.assertEqual(self.run_probe(self.bin / "lichii"), "unset")
-        (self.bin / "nx2_switches.txt").write_text('EDEN_NX2_PRELOAD_ALL_PIPELINES="1"\n')
+        (self.root / "nx2_switches.txt").write_text("GIURAY_NX2_PRELOAD_ALL_PIPELINES=99\n")
+        self.assertEqual(self.run_probe(self.bin / "giuray"), "unset")
+        (self.bin / "nx2_switches.txt").write_text('GIURAY_NX2_PRELOAD_ALL_PIPELINES="1"\n')
         linkdir = self.root / "links"
         linkdir.mkdir()
-        (linkdir / "lichii").symlink_to(self.bin / "lichii")
-        self.assertEqual(self.run_probe("lichii", PATH=str(linkdir)), "1")
-        (self.config / "nx2_switches.txt").write_text("EDEN_NX2_PRELOAD_ALL_PIPELINES=2\n")
-        self.assertEqual(self.run_probe(linkdir / "lichii"), "2")
-        self.assertEqual(self.run_probe(linkdir / "lichii", EDEN_NX2_PRELOAD_ALL_PIPELINES="3"), "3")
+        (linkdir / "giuray").symlink_to(self.bin / "giuray")
+        self.assertEqual(self.run_probe("giuray", PATH=str(linkdir)), "1")
+        (self.config / "nx2_switches.txt").write_text("GIURAY_NX2_PRELOAD_ALL_PIPELINES=2\n")
+        self.assertEqual(self.run_probe(linkdir / "giuray"), "2")
+        self.assertEqual(self.run_probe(linkdir / "giuray", GIURAY_NX2_PRELOAD_ALL_PIPELINES="3"), "3")
 
     def test_appimage_external_overrides_internal(self):
-        (self.bin / "nx2_switches.txt").write_text("EDEN_NX2_PRELOAD_ALL_PIPELINES=1\n")
+        (self.bin / "nx2_switches.txt").write_text("GIURAY_NX2_PRELOAD_ALL_PIPELINES=1\n")
         outer = self.root / "app"
         outer.mkdir()
-        image = outer / "Lichii.AppImage"
+        image = outer / "Giuray.AppImage"
         image.touch()
-        self.assertEqual(self.run_probe(self.bin / "lichii", APPIMAGE=str(image)), "1")
-        self.assertEqual(self.run_probe(self.bin / "lichii", APPIMAGE=str(outer / "missing.AppImage")), "1")
-        (outer / "nx2_switches.txt").write_text("EDEN_NX2_PRELOAD_ALL_PIPELINES=2\n")
-        self.assertEqual(self.run_probe(self.bin / "lichii", APPIMAGE=str(image)), "2")
+        self.assertEqual(self.run_probe(self.bin / "giuray", APPIMAGE=str(image)), "1")
+        self.assertEqual(self.run_probe(self.bin / "giuray", APPIMAGE=str(outer / "missing.AppImage")), "1")
+        (outer / "nx2_switches.txt").write_text("GIURAY_NX2_PRELOAD_ALL_PIPELINES=2\n")
+        self.assertEqual(self.run_probe(self.bin / "giuray", APPIMAGE=str(image)), "2")
         link = self.root / "link.AppImage"
         link.symlink_to(image)
-        self.assertEqual(self.run_probe(self.bin / "lichii", APPIMAGE=str(link)), "2")
-        self.assertEqual(self.run_probe(self.bin / "lichii", APPIMAGE="app/Lichii.AppImage"), "1")
-        (self.config / "nx2_switches.txt").write_text("EDEN_NX2_PRELOAD_ALL_PIPELINES=3\n")
-        self.assertEqual(self.run_probe(self.bin / "lichii", APPIMAGE=str(image)), "3")
-        self.assertEqual(self.run_probe(self.bin / "lichii", APPIMAGE=str(image), EDEN_NX2_PRELOAD_ALL_PIPELINES="4"), "4")
+        self.assertEqual(self.run_probe(self.bin / "giuray", APPIMAGE=str(link)), "2")
+        self.assertEqual(self.run_probe(self.bin / "giuray", APPIMAGE="app/Giuray.AppImage"), "1")
+        (self.config / "nx2_switches.txt").write_text("GIURAY_NX2_PRELOAD_ALL_PIPELINES=3\n")
+        self.assertEqual(self.run_probe(self.bin / "giuray", APPIMAGE=str(image)), "3")
+        self.assertEqual(self.run_probe(self.bin / "giuray", APPIMAGE=str(image), GIURAY_NX2_PRELOAD_ALL_PIPELINES="4"), "4")
 
 
 if __name__ == "__main__":

@@ -1299,7 +1299,7 @@ bool ManualContentProvider::AddEntriesFromContainer(VirtualFile file, bool only_
                                                     std::optional<u64> base_program_id) {
     if (NupContainer::IsNupFile(file)) {
         // A NUP holds loose trees: its add-ons are served as decrypted add-on NCAs, newest
-        // version per title (as in Eglantine-Community/Eglantine#724). Its updates are left to
+        // version per title (as in upstream #724). Its updates are left to
         // the NUP loader, which merges them into the program's RomFS.
         NupContainer nup{file};
         if (nup.GetStatus() != Loader::ResultStatus::Success) {

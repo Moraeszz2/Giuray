@@ -14,7 +14,7 @@
 
 namespace Common {
 
-/// EDEN_NX2_GPU_PROFILE: contended SpinRecursiveMutex acquisitions, their wait and how many slept.
+/// GIURAY_NX2_GPU_PROFILE: contended SpinRecursiveMutex acquisitions, their wait and how many slept.
 struct SpinMutexContention {
     std::uint64_t count{};
     std::uint64_t ns{};

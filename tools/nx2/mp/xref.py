@@ -3,7 +3,7 @@ python xref.py <text> [more texts...]"""
 import struct
 import sys
 
-DUMP = "C:/Users/gui62/lichii-perf/mp/private/main.bin"
+DUMP = "C:/Users/gui62/giuray-work/mp/private/main.bin"
 data = open(DUMP, "rb").read()
 code_end = 0x3C47000  # .text size; .rodata follows
 

@@ -8,8 +8,8 @@ import subprocess
 import sys
 
 PY = "B:/msys64/ucrt64/bin/python.exe"
-TOOL = "B:/projetos/Lichii/tools/nx2/debug_mcp.py"
-DUMP = "C:/Users/gui62/lichii-perf/mp/private/main.bin"
+TOOL = "B:/projetos/Giuray/tools/nx2/debug_mcp.py"
+DUMP = "C:/Users/gui62/giuray-work/mp/private/main.bin"
 code = open(DUMP, "rb").read()
 
 
@@ -58,4 +58,4 @@ for name, vtable, execute in sorted(nodes):
     if text in name:
         print(f"{name:60s} vtable {vtable:#x} execute main+{execute:#x}")
 json.dump([{"name": n, "vtable": hex(v), "execute": hex(e)} for n, v, e in nodes],
-          open("C:/Users/gui62/lichii-perf/mp/ainb_nodes.json", "w"), indent=1)
+          open("C:/Users/gui62/giuray-work/mp/ainb_nodes.json", "w"), indent=1)

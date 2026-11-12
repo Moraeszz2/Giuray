@@ -445,9 +445,9 @@ TEST_CASE("Shader cache v2: compute environments take recorded programs with eve
     TestProgram& traps = programs[6];
     TestProgram& texture = programs[8];
     TestProgram rejected{"rejected", Shader::Stage::Compute, {{{0x00007918, 0, 0, 0}}, Exit}, {}};
-    // EDEN_NX2_REJECT_HASH is read at the first lowering in the process: no other test lowers
+    // GIURAY_NX2_REJECT_HASH is read at the first lowering in the process: no other test lowers
     // in an environment.
-    SetEnvironment("EDEN_NX2_REJECT_HASH",
+    SetEnvironment("GIURAY_NX2_REJECT_HASH",
                    fmt::format("{:016x}", Shader::Ampere::NativeProgramKey(rejected.native)));
 
     NativeComputeFixture fixture;

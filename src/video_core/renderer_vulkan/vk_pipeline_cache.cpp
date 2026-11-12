@@ -1861,11 +1861,11 @@ void PipelineCache::QueueVulkanPipelineCacheSave() {
 }
 
 namespace {
-// EDEN_NX2_PIPELINE_DIFF=1: for a new graphics pipeline whose shaders an earlier one uses too,
+// GIURAY_NX2_PIPELINE_DIFF=1: for a new graphics pipeline whose shaders an earlier one uses too,
 // log which parts of the fixed state differ from that one (finds state that splits the same
 // draws into many pipelines, each translated on the GPU thread).
 void ReportNewPipelineKey(const GraphicsPipelineCacheKey& key) {
-    static const bool enabled = std::getenv("EDEN_NX2_PIPELINE_DIFF") != nullptr;
+    static const bool enabled = std::getenv("GIURAY_NX2_PIPELINE_DIFF") != nullptr;
     if (!enabled) {
         return;
     }
@@ -2130,7 +2130,7 @@ void PipelineCache::EvictUnusedPipelines() {
 
 /// Returns `pipeline` when it is built or the current draw must wait for it, and nullptr when the
 /// draw may be skipped while it builds (asynchronous shaders; native draws only with
-/// EDEN_NX2_ASYNC_DISCARD=1). Each nullptr returned for an unbuilt pipeline is counted for the log.
+/// GIURAY_NX2_ASYNC_DISCARD=1). Each nullptr returned for an unbuilt pipeline is counted for the log.
 GraphicsPipeline* PipelineCache::BuiltPipeline(GraphicsPipeline* pipeline) noexcept {
     if (pipeline->IsBuilt()) {
         return pipeline;
@@ -2138,14 +2138,14 @@ GraphicsPipeline* PipelineCache::BuiltPipeline(GraphicsPipeline* pipeline) noexc
     if (!use_asynchronous_shaders) {
         return pipeline;
     }
-    // EDEN_NX2_ASYNC_DISCARD=1: skip native draws whose pipeline is still building instead of
+    // GIURAY_NX2_ASYNC_DISCARD=1: skip native draws whose pipeline is still building instead of
     // waiting for it (experimental; the draw may be missing for a frame or more).
-    /// Reads EDEN_NX2_ASYNC_DISCARD once and logs when it is on.
+    /// Reads GIURAY_NX2_ASYNC_DISCARD once and logs when it is on.
     static const bool discard_native = [] {
-        const char* value = std::getenv("EDEN_NX2_ASYNC_DISCARD");
+        const char* value = std::getenv("GIURAY_NX2_ASYNC_DISCARD");
         const bool enabled = value != nullptr && value[0] == '1';
         if (enabled) {
-            LOG_INFO(Render_Vulkan, "EDEN_NX2_ASYNC_DISCARD: native draws skip unbuilt pipelines");
+            LOG_INFO(Render_Vulkan, "GIURAY_NX2_ASYNC_DISCARD: native draws skip unbuilt pipelines");
         }
         return enabled;
     }();
@@ -2591,11 +2591,11 @@ std::unique_ptr<GraphicsPipeline> PipelineCache::CreateGraphicsPipeline(
             }
         }
         ConvertLegacyToGeneric(program, runtime_info);
-        // EDEN_NX2_MESH_EMULATION_DUMP=<dir>: write the emulation's vertex shader for spirv-val.
+        // GIURAY_NX2_MESH_EMULATION_DUMP=<dir>: write the emulation's vertex shader for spirv-val.
         // (Emitting the mesh program a second time here to dump its compute shader crashed the
         // build that followed, so only the vertex shader is written.)
         if (mesh_emulation && program.stage == Shader::Stage::Mesh) {
-            if (const char* const dump{std::getenv("EDEN_NX2_MESH_EMULATION_DUMP")}) {
+            if (const char* const dump{std::getenv("GIURAY_NX2_MESH_EMULATION_DUMP")}) {
                 const auto& code{mesh_emulation->vertex_spirv};
                 std::ofstream file{fmt::format("{}/{:016x}.vert.spv", dump, hash),
                                    std::ios::binary};
@@ -2915,7 +2915,7 @@ ComputePipelineCacheEntry PipelineCache::CreateComputePipeline(const ComputePipe
     std::shared_ptr<ShaderPools> emit_pools = TakeSparePools();
     ShaderPools& pools = *emit_pools;
     auto entry{CreateComputePipeline(pools, key, env, nullptr, true, std::move(emit_pools))};
-    if (const char* directory = std::getenv("EDEN_NX2_SHADER_DUMP");
+    if (const char* directory = std::getenv("GIURAY_NX2_SHADER_DUMP");
         directory && !entry.pipeline && env.CanBeSerialized()) {
         const auto path = std::filesystem::path{directory} /
                           fmt::format("failed-compute-{:016x}-v{}.env", key.unique_hash, CACHE_VERSION);

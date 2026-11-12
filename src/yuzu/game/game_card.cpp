@@ -1,6 +1,9 @@
 // SPDX-FileCopyrightText: Copyright 2026 Eden Emulator Project
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+#include <algorithm>
+
+#include <QLinearGradient>
 #include <QPainter>
 #include <QPainterPath>
 #include "game_card.h"
@@ -18,27 +21,40 @@ void GameCard::paint(QPainter* painter, const QStyleOptionViewItem& option,
     painter->save();
     painter->setRenderHint(QPainter::Antialiasing);
 
-    constexpr int cardCornerRadius = 10;
+    constexpr int cardCornerRadius = 14;
 
     const QRect cardRect = getCardRect(option, index);
+    const bool selected = option.state & QStyle::State_Selected;
+    const bool hovered = option.state & QStyle::State_MouseOver;
 
-    QPalette palette = option.palette;
-    QColor backgroundColor = palette.window().color();
-    QColor borderColor = palette.dark().color();
-    QColor textColor = palette.text().color();
-
-    // highlight on select or hover
-    if (option.state & QStyle::State_Selected) {
-        backgroundColor = palette.highlight().color();
-        borderColor = palette.highlight().color().lighter(150);
-        textColor = palette.highlightedText().color();
-    } else if (option.state & QStyle::State_MouseOver) {
-        backgroundColor = backgroundColor.lighter(120);
+    // The selected card keeps its surface and gets an accent ring; in the carousel the others
+    // recede so the selection reads at a glance, as on a console home screen.
+    // Style sheets only set the view's base, text and highlight colors, so a dark theme gets the
+    // Giuray surfaces here and a light one derives them from its palette.
+    const QPalette& palette = option.palette;
+    const bool dark = palette.base().color().lightness() < 128;
+    const QColor accent = palette.highlight().color();
+    const QColor textColor = palette.text().color();
+    const QColor surface = dark ? QColor(0x15, 0x19, 0x25) : palette.base().color();
+    const QColor raised = dark ? QColor(0x1C, 0x21, 0x31) : palette.alternateBase().color();
+    QColor backgroundColor = selected || hovered ? raised : surface;
+    QColor borderColor = dark ? QColor(0x26, 0x2B, 0x3B) : palette.mid().color();
+    if (hovered && !selected) {
+        borderColor = dark ? QColor(0x35, 0x3B, 0x50) : palette.dark().color();
+    }
+    if (m_columns < 1 && !selected) {
+        painter->setOpacity(hovered ? 0.9 : 0.62);
     }
 
     painter->setBrush(backgroundColor);
     painter->setPen(QPen(borderColor, 1));
     painter->drawRoundedRect(cardRect, cardCornerRadius, cardCornerRadius);
+    if (selected) {
+        painter->setBrush(Qt::NoBrush);
+        painter->setPen(QPen(accent, 3));
+        painter->drawRoundedRect(QRectF(cardRect).adjusted(-2.5, -2.5, 2.5, 2.5),
+                                 cardCornerRadius + 2.5, cardCornerRadius + 2.5);
+    }
 
     const u32 icon_size = UISettings::values.game_icon_size.GetValue();
     QPixmap icon_pixmap = index.data(Qt::DecorationRole).value<QPixmap>();
@@ -55,8 +71,27 @@ void GameCard::paint(QPainter* painter, const QStyleOptionViewItem& option,
 
         painter->save();
         QPainterPath clip_path;
-        clip_path.addRoundedRect(iconRect, cardCornerRadius, cardCornerRadius);
+        clip_path.addRoundedRect(iconRect, cardCornerRadius - 4, cardCornerRadius - 4);
         painter->setClipPath(clip_path);
+
+        // A game without an icon gets a transparent one: show a tile with its initial under it,
+        // in the logo's gradient. A real icon is opaque and covers the tile.
+        QLinearGradient tile(iconRect.topLeft(), iconRect.bottomRight());
+        tile.setColorAt(0, QColor(0x5B, 0x3F, 0xD9));
+        tile.setColorAt(1, QColor(0x1E, 0x8F, 0xD8));
+        painter->fillRect(iconRect, tile);
+        const QString name = index.data(Qt::DisplayRole).toString();
+        const auto letter = std::find_if(name.cbegin(), name.cend(),
+                                         [](QChar c) { return c.isLetterOrNumber(); });
+        if (letter != name.cend()) {
+            QFont initial_font = option.font;
+            initial_font.setBold(true);
+            initial_font.setPixelSize(std::max(12, iconRect.height() / 2));
+            painter->setFont(initial_font);
+            painter->setPen(QColor(255, 255, 255, 235));
+            painter->drawText(iconRect, Qt::AlignCenter, QString(*letter).toUpper());
+        }
+
         painter->drawPixmap(iconRect, icon_pixmap);
         painter->restore();
     } else {

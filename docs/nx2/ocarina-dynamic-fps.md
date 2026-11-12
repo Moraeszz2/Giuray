@@ -8,7 +8,7 @@ the existing disabled-add-on configuration persists that choice.
 
 ## Credit and source
 
-Dark, an Eglantine developer, wrote the routine. This port preserves the call and
+Dark, an upstream developer, wrote the routine. This port preserves the call and
 120-byte routine from Frizti's `oot-gather-fix` commit
 `765659af4ccb7201d1145c57f3b45ce84653cea0`. That commit explicitly states that
 Dark gave permission to bundle it. Frizti supplied the built-in integration.
@@ -67,7 +67,7 @@ the original step as a floor, caps long frames, and smooths changes. Actual
 gameplay speed and the runtime value of that frame-rate field still require
 live validation.
 
-In Lichii, `CoreTiming::GetClockTicks` scales the counter for CPU Boost and
+In Giuray, `CoreTiming::GetClockTicks` scales the counter for CPU Boost and
 Overclock, while Dynarmic's advertised counter frequency stays unchanged.
 Boost uses a 1.7 multiplier and Overclock uses 2. Enabling core-speed
 synchronization can further divide the counter by the configured speed limit.

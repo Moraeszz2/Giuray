@@ -14,7 +14,7 @@ enum class ReadTraceSource { Storage, File };
 
 void RecordRead(ReadTraceSource source, u64 bytes, std::chrono::steady_clock::duration elapsed);
 
-/// EDEN_NX2_FS_READ_TRACE=1 times the backend read of a guest storage or file read; about once a
+/// GIURAY_NX2_FS_READ_TRACE=1 times the backend read of a guest storage or file read; about once a
 /// second while reads happen, the log gets their count, bytes and latency percentiles.
 class ReadTraceScope {
 public:
@@ -34,7 +34,7 @@ public:
     ReadTraceScope& operator=(const ReadTraceScope&) = delete;
 
 private:
-    static inline const bool Enabled = std::getenv("EDEN_NX2_FS_READ_TRACE") != nullptr;
+    static inline const bool Enabled = std::getenv("GIURAY_NX2_FS_READ_TRACE") != nullptr;
 
     ReadTraceSource source;
     s64 bytes;

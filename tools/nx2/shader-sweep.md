@@ -142,7 +142,7 @@ production code linked into `shader-sweep`:
 
 1. `MigrateLegacyPipelineCache` migrates a copy of the cache into a new v2 log in the output
    directory, and `ReadLogFile` reads it back.
-2. If a `lichii-cache.v2.bin` log is next to the cache, its Program records are used as the boot
+2. If a `giuray-cache.v2.bin` log is next to the cache, its Program records are used as the boot
    uses them. `LoadPrograms` and `FindProgram` find the records of this build's lowering, and
    `RelowerProgramRecord` lowers the records of other builds again. `RekeyPipelineRecord` then
    gives each pipeline record that uses one of these programs the program's code and new key.
@@ -186,19 +186,19 @@ This in-tree build links `video_core` for `--path v2`, so the first build takes 
 emulator build.
 
 Copy the cache while the emulator is closed, because the runtime appends to the file and
-rewrites it. For `--path v2`, also copy `lichii-cache.v2.bin` from the same folder if it exists.
+rewrites it. For `--path v2`, also copy `giuray-cache.v2.bin` from the same folder if it exists.
 Then run the replay with native Windows Python:
 
 ```sh
-PY=/c/Users/Zortos/AppData/Local/Programs/Python/Python314/python.exe
+PY=python
 $PY -I C:/lx/src/tools/nx2/shader_sweep.py replay \
-    C:/Users/Zortos/.capy/work/replay/caches/0400486024dec000 \
+    C:/Users/gui62/giuray-work/replay/caches/0400486024dec000 \
     --compiler-a C:/lx/build-tools/bin/shader-sweep.exe \
-    --output C:/Users/Zortos/.capy/work/replay/oot-legacy --jobs 12
+    --output C:/Users/gui62/giuray-work/replay/oot-legacy --jobs 12
 $PY -I C:/lx/src/tools/nx2/shader_sweep.py replay \
-    C:/Users/Zortos/.capy/work/replay/caches/0400486024dec000 \
+    C:/Users/gui62/giuray-work/replay/caches/0400486024dec000 \
     --compiler-a C:/lx/build-tools/bin/shader-sweep.exe --path-a legacy --path-b v2 \
-    --output C:/Users/Zortos/.capy/work/replay/oot-v2 --jobs 12
+    --output C:/Users/gui62/giuray-work/replay/oot-v2 --jobs 12
 ```
 
 The script uses only the standard library and needs no `spirv-val`.

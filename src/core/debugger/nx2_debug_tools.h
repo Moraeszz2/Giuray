@@ -96,7 +96,7 @@ struct InputStep {
 [[nodiscard]] nlohmann::json ReadFrameTimes(u64 before, u64 after, u64 begin_ns, u64 end_ns,
                                           double refresh_hz);
 
-/// The service when EDEN_NX2_DEBUG_SERVER is set and it can listen, otherwise null.
+/// The service when GIURAY_NX2_DEBUG_SERVER is set and it can listen, otherwise null.
 [[nodiscard]] std::unique_ptr<Service> MaybeStartService(System& system, std::string title,
                                                          u64 program_id);
 

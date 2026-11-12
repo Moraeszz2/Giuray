@@ -42,7 +42,7 @@ The program has 70 `ATOMG.E.ADD` instructions. In the IR, 65 of them add an imme
 is computed as `low < pointer_low` and is added to the high word. The other 5 add a
 thread-dependent 64-bit offset to the pointer at `c1[0x0]`; their carry is the add's
 carry flag. Both pointers are classified unmapped when the pipeline is built.
-[Lichii #47](https://github.com/zortos293/Lichii/pull/47) keeps the buffer only for a
+[Giuray #47](https://github.com/Moraeszz2/Giuray/pull/47) keeps the buffer only for a
 pointer that is the atomic's bare address, so neither form matches. Offline, mapping
 only `c0[0x40]` routes the 65; mapping only `c1[0x0]` routes the 5.
 
@@ -62,7 +62,7 @@ added rather than assigning a guessed format.
 
 Upstream nx2, PR/issue searches, and relevant texture/shader diffs were checked.
 Upstream does not contain the fork's `geometry_exit.h` or `register_pressure.h` helpers.
-The X8Z24 fix from Eglantine #295 and the texture-header-offset fix are already present;
+The X8Z24 fix from upstream #295 and the texture-header-offset fix are already present;
 neither describes this format-zero entry. The subsequent upstream sync was merged
 through origin/nx2, including #47, #48, #49 and #50.
 
@@ -73,7 +73,7 @@ read `SR_WSCALEFACTOR_XY` and `SR_WSCALEFACTOR_Z` (S2UR 30 and 31): 82 graphics 
 compute `0x130d607b00`. In the vertex programs the factors scale W for frustum tests that
 choose an early EXIT, and lowering removes that rejection, so no IR reads the factors. None of
 the 50 cached modules that contain the stub's `0x00ff0000` constant bitcasts it to a float;
-each uses it only as a bit mask. The open upstream Eglantine #27 maps the factors to the
+each uses it only as a bit mask. The open upstream upstream #27 maps the factors to the
 viewport clip-control guardband (256.0 or 1.0), but that would change no emitted module here.
 
 `nx2:IGraphicsScaleController` command 1050 is `nn::oe::SetGraphicsScaleChangedNotificationEnabled(bool)`
@@ -104,8 +104,8 @@ Bananza uses only as a quality tier.
 
 ## Next in-game capture
 
-Set `EDEN_NX2_SHADER_DUMP` to an existing writable directory and
-`EDEN_NX2_RENDER_TRACE=1`. Use log filter
+Set `GIURAY_NX2_SHADER_DUMP` to an existing writable directory and
+`GIURAY_NX2_RENDER_TRACE=1`. Use log filter
 `*:Info HW.GPU:Debug Render.Vulkan:Debug Shader:Debug`.
 
 Besides native shader binaries, the dump directory now receives
@@ -182,7 +182,7 @@ The `kirby-fix4` log does not establish the cause of the low frame rate. Its 636
 summary spans 10.070 seconds and counts GPU-thread translation, not driver-worker compilation.
 Between 118 and 125 seconds the individual logged builds total 2,121.1 ms. The last logged
 build is at 124.556 seconds; the log continues to 157.936 seconds. Profile another run with
-`EDEN_NX2_GPU_PROFILE=1 EDEN_DKB_FRAME_TRACE=1`; exclude the deliberate frame-dump stall from
+`GIURAY_NX2_GPU_PROFILE=1 GIURAY_DKB_FRAME_TRACE=1`; exclude the deliberate frame-dump stall from
 performance measurements.
 
 ### Sustained GPU stalls
@@ -194,7 +194,7 @@ but do not identify the shader responsible. The captured present image is a sky 
 so it cannot verify the remaining black characters or broken shadows.
 
 For another performance capture, keep the shader cache and enable
-`EDEN_NX2_GPU_PROFILE=1 EDEN_DKB_FRAME_TRACE=1`. Do not enable a frame dump in the measured
+`GIURAY_NX2_GPU_PROFILE=1 GIURAY_DKB_FRAME_TRACE=1`. Do not enable a frame dump in the measured
 interval. The profile adds `writer wait`, `list submit wait` and `list GPU wait` zones to
 separate front command-list readback waits from command parsing. Existing GPU timestamp
 samples also report up to four submissions taking at least 10 ms as `DKB gpu_submission`.
@@ -214,18 +214,18 @@ and their sum exceeds the submission time. Use it to rank work, not to measure t
 
 ## Frame dump
 
-The logs show every shader building, so the next step needs pixels. `EDEN_NX2_FRAME_DUMP` reads
+The logs show every shader building, so the next step needs pixels. `GIURAY_NX2_FRAME_DUMP` reads
 back one whole frame inside the emulator. No capture tool is needed.
 
 | Variable | Value |
 |---|---|
-| `EDEN_NX2_FRAME_DUMP` | Directory for the dump. It is created if missing. When unset, the dump code stays inactive. |
-| `EDEN_NX2_FRAME_DUMP_AT` | Which frame to capture: seconds after boot (`45`), a frame number with an `f` suffix (`2700f`), or `file` to capture once `capture.now` exists in the dump directory (checked every 30 frames). Default `60`. |
+| `GIURAY_NX2_FRAME_DUMP` | Directory for the dump. It is created if missing. When unset, the dump code stays inactive. |
+| `GIURAY_NX2_FRAME_DUMP_AT` | Which frame to capture: seconds after boot (`45`), a frame number with an `f` suffix (`2700f`), or `file` to capture once `capture.now` exists in the dump directory (checked every 30 frames). Default `60`. |
 
 Example for the character select screen:
 
 ```
-EDEN_NX2_FRAME_DUMP=C:\lx\dump EDEN_NX2_FRAME_DUMP_AT=45
+GIURAY_NX2_FRAME_DUMP=C:\lx\dump GIURAY_NX2_FRAME_DUMP_AT=45
 ```
 
 Open character select, then wait past the trigger time. The log shows `Frame dump: capturing frame

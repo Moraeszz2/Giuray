@@ -13,7 +13,7 @@ namespace Common::DkbFrameTrace {
 
 inline bool Enabled() {
     static const bool enabled = [] {
-        const char* value = std::getenv("EDEN_DKB_FRAME_TRACE");
+        const char* value = std::getenv("GIURAY_DKB_FRAME_TRACE");
         return value && std::strcmp(value, "1") == 0;
     }();
     return enabled;

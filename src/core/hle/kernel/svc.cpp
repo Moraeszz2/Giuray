@@ -2510,10 +2510,10 @@ void Call(Core::System& system, u32 imm) {
     LOG_TRACE(Kernel_SVC, "{} [0]={:#x} [1]={:#x} [2]={:#x} [3]={:#x} [4]={:#x} [5]={:#x} [6]={:#x}",
         imm, GetArg64(args, 0), GetArg64(args, 1), GetArg64(args, 2),
         GetArg64(args, 3), GetArg64(args, 4), GetArg64(args, 5), GetArg64(args, 6));
-    // Set EDEN_NX2_SVC_TRACE=1 to log every SVC with its arguments and results, or
-    // EDEN_NX2_SVC_TRACE=<first>:<last> for presents first..last only (a frame-time profile).
+    // Set GIURAY_NX2_SVC_TRACE=1 to log every SVC with its arguments and results, or
+    // GIURAY_NX2_SVC_TRACE=<first>:<last> for presents first..last only (a frame-time profile).
     static const std::pair<u64, u64> trace_range = [] {
-        const char* text = std::getenv("EDEN_NX2_SVC_TRACE");
+        const char* text = std::getenv("GIURAY_NX2_SVC_TRACE");
         if (text == nullptr) return std::pair<u64, u64>{1, 0};
         const char* colon = std::strchr(text, ':');
         if (colon == nullptr) return std::pair<u64, u64>{0, ~u64{}};

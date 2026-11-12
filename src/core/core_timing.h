@@ -172,7 +172,7 @@ public:
     std::atomic<bool> wait_set{};
     std::atomic<bool> has_started{};
     bool is_multicore{};
-    /// Logs the timer thread's waits once a second (EDEN_NX2_HOSTTIMING_STATS=1, or the debug
+    /// Logs the timer thread's waits once a second (GIURAY_NX2_HOSTTIMING_STATS=1, or the debug
     /// server's host_timing).
     std::atomic<bool> host_wait_stats{};
 };

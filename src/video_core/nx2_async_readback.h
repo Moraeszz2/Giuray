@@ -21,31 +21,31 @@
 // instead (Maxwell3D::FrontRunOnBack).
 //
 // Diagnostics, off unless set:
-// - EDEN_NX2_READ_CHECK=n: 1 in n read downloads (1 checks them all) is compared with a
+// - GIURAY_NX2_READ_CHECK=n: 1 in n read downloads (1 checks them all) is compared with a
 //   synchronous flush's copy taken at the same point of the GPU's work
 //   (BufferCache::CheckReadDownload).
-// - EDEN_NX2_DMA_READ_VERIFY: every macro DMA read made without draining the split drains it
+// - GIURAY_NX2_DMA_READ_VERIFY: every macro DMA read made without draining the split drains it
 //   too and is compared (CheckDmaRead).
 namespace VideoCore::AsyncReadback {
 
-/// EDEN_NX2_READ_CHECK's value: unset, 0 or not a number checks none.
+/// GIURAY_NX2_READ_CHECK's value: unset, 0 or not a number checks none.
 [[nodiscard]] inline u64 ParseReadCheck(const char* value) {
     return value == nullptr ? 0 : static_cast<u64>(std::strtoull(value, nullptr, 10));
 }
 
-inline std::atomic<u64> g_read_check_every{ParseReadCheck(std::getenv("EDEN_NX2_READ_CHECK"))};
-inline std::atomic<bool> g_dma_read_verify{std::getenv("EDEN_NX2_DMA_READ_VERIFY") != nullptr};
+inline std::atomic<u64> g_read_check_every{ParseReadCheck(std::getenv("GIURAY_NX2_READ_CHECK"))};
+inline std::atomic<bool> g_dma_read_verify{std::getenv("GIURAY_NX2_DMA_READ_VERIFY") != nullptr};
 
 /// Called by VideoCore::CreateGPU: static initialization runs before the frontend loads
 /// nx2_switches.txt, so a switch set only there takes effect from that point on.
 inline void ReadSwitch() {
-    g_read_check_every.store(ParseReadCheck(std::getenv("EDEN_NX2_READ_CHECK")),
+    g_read_check_every.store(ParseReadCheck(std::getenv("GIURAY_NX2_READ_CHECK")),
                              std::memory_order_relaxed);
-    g_dma_read_verify.store(std::getenv("EDEN_NX2_DMA_READ_VERIFY") != nullptr,
+    g_dma_read_verify.store(std::getenv("GIURAY_NX2_DMA_READ_VERIFY") != nullptr,
                             std::memory_order_relaxed);
 }
 
-/// EDEN_NX2_READ_CHECK: check 1 in this many read downloads, 0 for none.
+/// GIURAY_NX2_READ_CHECK: check 1 in this many read downloads, 0 for none.
 [[nodiscard]] inline u64 ReadCheckEvery() {
     return g_read_check_every.load(std::memory_order_relaxed);
 }
@@ -83,7 +83,7 @@ enum class Read : u8 {
     Count,
 };
 
-/// Totals for the per-second line (EDEN_NX2_GPU_PROFILE), from every thread.
+/// Totals for the per-second line (GIURAY_NX2_GPU_PROFILE), from every thread.
 struct Counters {
     std::array<std::atomic<u64>, static_cast<size_t>(Read::Count)> reads{};
     /// From the read's request to its bytes in guest memory

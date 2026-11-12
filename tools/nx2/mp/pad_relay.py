@@ -1,12 +1,12 @@
 """Copies the local player controller's pad state into the fake controller the copy Link reads
-(the live test before the Lichii build does it), as fast as the debug server answers.
+(the live test before the Giuray build does it), as fast as the debug server answers.
 python pad_relay.py <seconds>  (reads ctrl.json and fake.json next to rsp.py)"""
 import json
 import socket
 import sys
 import time
 
-MP = "C:/Users/gui62/lichii-perf/mp/"
+MP = "C:/Users/gui62/giuray-work/mp/"
 ctrl = json.load(open(MP + "ctrl.json"))["ctrl"]
 fake = json.load(open(MP + "fake.json"))["fake"]
 sock = socket.create_connection(("127.0.0.1", 6545), timeout=5)

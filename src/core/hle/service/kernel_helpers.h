@@ -38,7 +38,7 @@ public:
     bool process_created{false};
 };
 
-/// The name a service gave an event (EDEN_NX2_SVC_TRACE shows the handles a thread waits on).
+/// The name a service gave an event (GIURAY_NX2_SVC_TRACE shows the handles a thread waits on).
 std::string DebugEventName(const Kernel::KReadableEvent* event);
 
 } // namespace Service::KernelHelpers

@@ -457,7 +457,7 @@ namespace {
 // Hybrid CPUs (Intel P/E cores): Windows alone may run the emulator's time-critical threads on an
 // efficiency core, where a frame takes much longer. Keep them on the fastest cores with CPU sets
 // (a soft affinity the power manager respects) and background workers on the slower ones.
-// EDEN_HYBRID_CORES=0 turns this off.
+// GIURAY_HYBRID_CORES=0 turns this off.
 struct WindowsCpuSets {
     std::vector<Common::LogicalProcessor> processors;
     std::vector<ULONG> performance;
@@ -468,9 +468,9 @@ struct WindowsCpuSets {
 const WindowsCpuSets& CpuSets() {
     static const WindowsCpuSets sets = [] {
         WindowsCpuSets result;
-        if (const char* text = std::getenv("EDEN_HYBRID_CORES");
+        if (const char* text = std::getenv("GIURAY_HYBRID_CORES");
             text != nullptr && std::strtol(text, nullptr, 10) == 0) {
-            LOG_INFO(Common, "Hybrid core placement off (EDEN_HYBRID_CORES=0)");
+            LOG_INFO(Common, "Hybrid core placement off (GIURAY_HYBRID_CORES=0)");
             return result;
         }
         using PFN_GetSystemCpuSetInformation = BOOL(WINAPI*)(PSYSTEM_CPU_SET_INFORMATION, ULONG,
@@ -999,7 +999,7 @@ void Event::WakeSleeper() {
     SetEvent(sleep_wake);
 }
 
-// Timer and wake event as in Eglantine #538 (a51de161ed, pretend7979): a high-resolution timer
+// Timer and wake event as in upstream #538 (a51de161ed, pretend7979): a high-resolution timer
 // can expire between timer-resolution ticks.
 bool Event::SleepFor(const std::chrono::nanoseconds time) {
     struct Timer {

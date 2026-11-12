@@ -118,7 +118,7 @@ Scheduler::Scheduler(const Device& device_, StateTracker& state_tracker_)
       upload_batch{std::make_unique<UploadBatch>()} {
 
     // The submission timestamps also feed the performance overlay's GPU %, so they exist
-    // without EDEN_DKB_FRAME_TRACE; nothing is written to them until a sample is asked for.
+    // without GIURAY_DKB_FRAME_TRACE; nothing is written to them until a sample is asked for.
     const auto physical = device.GetPhysical();
     trace_timestamp_bits =
         physical.GetQueueFamilyProperties()[device.GetGraphicsFamily()].timestampValidBits;
@@ -199,7 +199,7 @@ bool Scheduler::DeferFlush() {
     // Command list copies after dispatches were ~9,000 more a second, of which the front waited
     // for about 5%.
     static const s64 interval_us = [] {
-        const char* value = std::getenv("EDEN_NX2_FENCE_FLUSH_US");
+        const char* value = std::getenv("GIURAY_NX2_FENCE_FLUSH_US");
         if (value != nullptr) {
             return static_cast<s64>(std::atoll(value));
         }

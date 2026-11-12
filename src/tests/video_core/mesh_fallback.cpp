@@ -96,9 +96,9 @@ std::vector<u32> Bindings(const std::vector<u32>& code) {
     return bindings;
 }
 
-// EDEN_MESH_FALLBACK_TEST_OUTPUT=<dir>: write the modules for spirv-val.
+// GIURAY_MESH_FALLBACK_TEST_OUTPUT=<dir>: write the modules for spirv-val.
 void Dump(const std::vector<u32>& code, std::string_view name) {
-    const char* const directory{std::getenv("EDEN_MESH_FALLBACK_TEST_OUTPUT")};
+    const char* const directory{std::getenv("GIURAY_MESH_FALLBACK_TEST_OUTPUT")};
     if (!directory) {
         return;
     }

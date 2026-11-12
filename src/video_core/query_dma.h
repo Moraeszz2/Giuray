@@ -17,11 +17,11 @@
 
 namespace VideoCommon::QueryDma {
 
-/// EDEN_NX2_QUERY_DMA_TRACE=1: logs MME DMA reads of reports whose host query results are not
+/// GIURAY_NX2_QUERY_DMA_TRACE=1: logs MME DMA reads of reports whose host query results are not
 /// in guest memory yet. Below High GPU accuracy, counter reports are written when a later fence
 /// pops, so such a read returns an older count.
 inline bool TraceEnabled() {
-    static const bool enabled = std::getenv("EDEN_NX2_QUERY_DMA_TRACE") != nullptr;
+    static const bool enabled = std::getenv("GIURAY_NX2_QUERY_DMA_TRACE") != nullptr;
     return enabled;
 }
 

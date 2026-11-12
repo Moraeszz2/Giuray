@@ -377,7 +377,7 @@ struct Values {
                                                   true,
                                                   true};
 
-    // Lichii: caps how often the game's own compositor presents, so the game itself is paced to
+    // Giuray: caps how often the game's own compositor presents, so the game itself is paced to
     // this rate instead of only the display. 0 keeps the game's vblank and swap interval.
     SwitchableSetting<u32, true> fps_limit{linkage,
                                            0,
@@ -744,7 +744,7 @@ struct Values {
 
     // Docked Switch 2 games: while one runs well below its frame rate it is told the console is
     // handheld (Ocarina of Time then renders 1080p instead of 1440p), and docked again once it
-    // keeps up; controllers and the output stay docked. EDEN_NX2_AUTO_RES=0/1 overrides.
+    // keeps up; controllers and the output stay docked. GIURAY_NX2_AUTO_RES=0/1 overrides.
     SwitchableSetting<bool> nx2_auto_resolution{linkage, false, "nx2_auto_resolution",
                                                 Category::RendererAdvanced};
 

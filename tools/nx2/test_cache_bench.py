@@ -44,15 +44,15 @@ class BenchTest(unittest.TestCase):
         self.original = tree(self.shader)
         self.session = self.root / "session"
         self.running = False
-        originals = (cache_bench.lichii_running, cache_bench.port_open)
-        cache_bench.lichii_running = lambda name: self.running
+        originals = (cache_bench.giuray_running, cache_bench.port_open)
+        cache_bench.giuray_running = lambda name: self.running
         cache_bench.port_open = lambda address: self.running
-        self.addCleanup(lambda: (setattr(cache_bench, "lichii_running", originals[0]),
+        self.addCleanup(lambda: (setattr(cache_bench, "giuray_running", originals[0]),
                                  setattr(cache_bench, "port_open", originals[1])))
         self.config = {
             "user_dir": str(self.user), "output_dir": str(self.root / "out"),
             "paths": {"A": {"package": str(self.root / "pkg-a")},
-                      "B": {"package": str(self.root / "pkg-b"), "env": {"EDEN_X": "1"}}},
+                      "B": {"package": str(self.root / "pkg-b"), "env": {"GIURAY_X": "1"}}},
             "games": {"oot": {"title_id": TITLE, "game": "C:/games/oot.nsp"},
                       "mkw": {"title_id": "0400C3F00006E000", "game": "C:/games/mkw.nsp"}},
         }
@@ -207,10 +207,10 @@ class BenchTest(unittest.TestCase):
     def test_run_env(self):
         run = {"game": "oot", "path": "B", "mesh": "no_mesh"}
         env = cache_bench.run_env(self.config, run, base={})
-        self.assertEqual(env["EDEN_NX2_STUTTER_TRACE"], "1")
-        self.assertEqual(env["EDEN_NX2_DEBUG_SERVER"], "127.0.0.1:6545")
-        self.assertEqual(env["EDEN_NX2_FORCE_MESH_FALLBACK"], "1")
-        self.assertEqual(env["EDEN_X"], "1")
+        self.assertEqual(env["GIURAY_NX2_STUTTER_TRACE"], "1")
+        self.assertEqual(env["GIURAY_NX2_DEBUG_SERVER"], "127.0.0.1:6545")
+        self.assertEqual(env["GIURAY_NX2_FORCE_MESH_FALLBACK"], "1")
+        self.assertEqual(env["GIURAY_X"], "1")
         cmd, package = cache_bench.command(self.config, run)
         self.assertEqual(cmd[1:], ["-g", "C:/games/oot.nsp"])
         self.assertEqual(package, self.root / "pkg-b")
@@ -227,7 +227,7 @@ class BenchTest(unittest.TestCase):
         text = output.getvalue()
         self.assertIn("16 runs:", text)
         self.assertIn("r0-oot-cold-no_mesh-B", text)
-        self.assertIn("EDEN_NX2_FORCE_MESH_FALLBACK=1", text)
+        self.assertIn("GIURAY_NX2_FORCE_MESH_FALLBACK=1", text)
         self.assertIn("3 files", text)
 
     def test_steps_drive_the_debug_server(self):
@@ -270,7 +270,7 @@ class BenchTest(unittest.TestCase):
         def fake_boot(config, run, run_dir):
             seen.append((run["cache"], tree(self.shader)))
             write(self.shader / "vulkan.fork-v54.bin", b"written by " + run["id"].encode())
-            (Path(run_dir) / "eden_log.txt").write_text(
+            (Path(run_dir) / "giuray_log.txt").write_text(
                 f"[   1.000000] Frontend <Info> m.cpp:1:x: Booting game: {TITLE} | Ocarina | 1\n"
                 f"[   2.000000] Render.Vulkan <Info> x:1:y: Vulkan driver pipelines cached at: "
                 f"{self.shader / 'vulkan_pipelines.fork-v54.bin'}\n"

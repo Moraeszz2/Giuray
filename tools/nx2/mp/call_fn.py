@@ -8,11 +8,11 @@ import struct
 import subprocess
 import sys
 
-sys.path.insert(0, "C:/Users/gui62/lichii-perf/mp")
+sys.path.insert(0, "C:/Users/gui62/giuray-work/mp")
 from rsp import call  # noqa: E402
 
 PY = "B:/msys64/ucrt64/bin/python.exe"
-TOOL = "B:/projetos/Lichii/tools/nx2/debug_mcp.py"
+TOOL = "B:/projetos/Giuray/tools/nx2/debug_mcp.py"
 CAVE = 0x3C46400
 STOP = CAVE + 0x1F0
 DATA = CAVE + 0x400  # call_fn's own blobs, after spawn_actor's data
@@ -34,7 +34,7 @@ for text in sys.argv[3:]:
         cursor = (cursor + len(data) + 15) & ~15
     else:
         args.append(int(text, 0))
-sites = subprocess.run([PY, "-I", "B:/projetos/Lichii/tools/nx2/mp/vcalls.py", "0xe8"],
+sites = subprocess.run([PY, "-I", "B:/projetos/Giuray/tools/nx2/mp/vcalls.py", "0xe8"],
                        capture_output=True, text=True).stdout.split()
 sites = [int(s.lstrip("+"), 16) for s in sites if s.startswith("+")]
 for site in sites:
@@ -46,7 +46,7 @@ if not stop:
     print("no thread reached a dispatch")
     sys.exit(1)
 saved = raw("g")
-open("C:/Users/gui62/lichii-perf/mp/call_saved_regs.txt", "w").write(saved)
+open("C:/Users/gui62/giuray-work/mp/call_saved_regs.txt", "w").write(saved)
 regs = bytearray(bytes.fromhex(saved))
 sp = struct.unpack_from("<Q", regs, 31 * 8)[0]
 frame = (sp - 0x200) & ~0xF

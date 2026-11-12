@@ -34,7 +34,7 @@
 #include "video_core/vulkan_common/vulkan_wrapper.h"
 #include "video_core/gpu_logging/gpu_logging.h"
 #include "video_core/shader_cache_v2/cache.h"
-#ifdef EGLANTINE_STREAMLINE
+#ifdef GIURAY_STREAMLINE
 #include "video_core/vulkan_common/streamline.h"
 #endif
 
@@ -430,7 +430,7 @@ u64 AllocatedUsage(VkDeviceSize driver_usage, const VmaBudget& vma_budget) {
     return driver_usage - (std::min)(driver_usage, unused);
 }
 
-// VMA's device memory calls, timed for EDEN_NX2_STUTTER_TRACE.
+// VMA's device memory calls, timed for GIURAY_NX2_STUTTER_TRACE.
 PFN_vkAllocateMemory g_vma_allocate_memory{};
 PFN_vkFreeMemory g_vma_free_memory{};
 
@@ -801,9 +801,9 @@ Device::Device(VkInstance instance_, vk::PhysicalDevice physical_, VkSurfaceKHR 
         RemoveExtensionFeature(extensions.descriptor_buffer, features.descriptor_buffer,
                                VK_EXT_DESCRIPTOR_BUFFER_EXTENSION_NAME);
     }
-#ifdef EGLANTINE_STREAMLINE
+#ifdef GIURAY_STREAMLINE
     // NVIDIA's DLSS needs buffer device addresses: keep the feature enabled for
-    // it, but leave Eglantine's own buffers as they are without descriptor buffers.
+    // it, but leave the emulator's own buffers as they are without descriptor buffers.
     const bool dlss_wants_device_address =
         streamline_extensions && features.buffer_device_address.bufferDeviceAddress;
     if (!extensions.descriptor_buffer && dlss_wants_device_address) {
@@ -836,7 +836,7 @@ Device::Device(VkInstance instance_, vk::PhysicalDevice physical_, VkSurfaceKHR 
     graphics_queue = logical.GetQueue(graphics_family);
     present_queue = logical.GetQueue(present_family);
 
-#ifdef EGLANTINE_STREAMLINE
+#ifdef GIURAY_STREAMLINE
     if (streamline_extensions) {
         streamline_attached =
             Streamline::AttachDevice(instance, physical, *logical, graphics_family, dld);
@@ -860,7 +860,7 @@ Device::Device(VkInstance instance_, vk::PhysicalDevice physical_, VkSurfaceKHR 
     if (extensions.buffer_device_address) {
         flags |= VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT;
     }
-    // EDEN_NX2_VRAM_LIMIT_MIB: VMA fails allocations past the limit, like a smaller card.
+    // GIURAY_NX2_VRAM_LIMIT_MIB: VMA fails allocations past the limit, like a smaller card.
     std::array<VkDeviceSize, VK_MAX_MEMORY_HEAPS> heap_size_limits;
     heap_size_limits.fill(VK_WHOLE_SIZE);
     if (heap_size_limit != 0) {
@@ -902,7 +902,7 @@ Device::Device(VkInstance instance_, vk::PhysicalDevice physical_, VkSurfaceKHR 
 }
 
 Device::~Device() {
-#ifdef EGLANTINE_STREAMLINE
+#ifdef GIURAY_STREAMLINE
     if (streamline_attached) {
         Streamline::Stop();
     }
@@ -1293,7 +1293,7 @@ bool Device::GetSuitability(bool requires_swapchain) {
         extensions.robustness_2 = false;
     }
 
-#ifdef EGLANTINE_STREAMLINE
+#ifdef GIURAY_STREAMLINE
     // The extensions NVIDIA's DLSS asks for, where the device has them all.
     if (Streamline::WantsDevice()) {
         const std::vector<std::string> wanted = Streamline::DeviceExtensions();
@@ -1771,10 +1771,10 @@ void Device::RemoveUnsuitableExtensions() {
     features.mesh_shader.primitiveFragmentShadingRateMeshShader = VK_FALSE;
     features.mesh_shader.meshShaderQueries = VK_FALSE;
     extensions.mesh_shader = features.mesh_shader.taskShader && features.mesh_shader.meshShader;
-    // EDEN_NX2_FORCE_MESH_FALLBACK=1: leave VK_EXT_mesh_shader disabled, so task/mesh draws take
+    // GIURAY_NX2_FORCE_MESH_FALLBACK=1: leave VK_EXT_mesh_shader disabled, so task/mesh draws take
     // the compute fallback a device without it uses.
-    if (extensions.mesh_shader && std::getenv("EDEN_NX2_FORCE_MESH_FALLBACK") != nullptr) {
-        LOG_WARNING(Render_Vulkan, "EDEN_NX2_FORCE_MESH_FALLBACK: VK_EXT_mesh_shader disabled");
+    if (extensions.mesh_shader && std::getenv("GIURAY_NX2_FORCE_MESH_FALLBACK") != nullptr) {
+        LOG_WARNING(Render_Vulkan, "GIURAY_NX2_FORCE_MESH_FALLBACK: VK_EXT_mesh_shader disabled");
         extensions.mesh_shader = false;
     }
     RemoveExtensionFeatureIfUnsuitable(extensions.mesh_shader, features.mesh_shader,
@@ -2061,14 +2061,14 @@ void Device::CollectPhysicalMemoryInfo() {
     device_access_memory = 0;
     u64 device_initial_usage = 0;
     u64 local_memory = 0;
-    // EDEN_NX2_VRAM_LIMIT_MIB=<n>: treat every device-local heap as n MiB (small card tests).
-    if (const char* value = std::getenv("EDEN_NX2_VRAM_LIMIT_MIB")) {
+    // GIURAY_NX2_VRAM_LIMIT_MIB=<n>: treat every device-local heap as n MiB (small card tests).
+    if (const char* value = std::getenv("GIURAY_NX2_VRAM_LIMIT_MIB")) {
         heap_size_limit = std::strtoull(value, nullptr, 10) << 20;
         if (heap_size_limit != 0) {
-            LOG_INFO(Render_Vulkan, "EDEN_NX2_VRAM_LIMIT_MIB: device-local heaps limited to {} MiB",
+            LOG_INFO(Render_Vulkan, "GIURAY_NX2_VRAM_LIMIT_MIB: device-local heaps limited to {} MiB",
                      heap_size_limit >> 20);
         } else {
-            LOG_WARNING(Render_Vulkan, "EDEN_NX2_VRAM_LIMIT_MIB={} is not a size in MiB, ignored",
+            LOG_WARNING(Render_Vulkan, "GIURAY_NX2_VRAM_LIMIT_MIB={} is not a size in MiB, ignored",
                         value);
         }
     }

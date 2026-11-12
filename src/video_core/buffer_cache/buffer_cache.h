@@ -121,7 +121,7 @@ void BufferCache<P>::TickFrame() {
     }
     runtime.TickFrame(slot_buffers);
     native_indirect_uniforms_this_frame.clear();
-    static const bool mem_trace = std::getenv("EDEN_NX2_MEM_TRACE") != nullptr;
+    static const bool mem_trace = std::getenv("GIURAY_NX2_MEM_TRACE") != nullptr;
     if (static std::chrono::steady_clock::time_point last{}; mem_trace) {
         if (const auto now = std::chrono::steady_clock::now(); now - last >= std::chrono::seconds{2}) {
             last = now;
@@ -225,7 +225,7 @@ template <class P>
 void BufferCache<P>::WriteMemory(DAddr device_addr, u64 size, bool keep_page_gpu_data) {
     Nx2NoteListHostWrite(device_addr, size);
     NoteUniformWrite(device_addr, size);
-    // EDEN_NX2_READ_CHECK: a newer value where an early download landed, as ClearDownload
+    // GIURAY_NX2_READ_CHECK: a newer value where an early download landed, as ClearDownload
     // forgets one over GPU-modified bytes: without early downloads the write had taken the bytes
     // out of the GPU-modified ones, and the read's synchronous flush leaves them. Landed bytes
     // are no longer GPU-modified, so the write reaches no ClearDownload: written back to the
@@ -274,7 +274,7 @@ void BufferCache<P>::WriteMemory(DAddr device_addr, u64 size, bool keep_page_gpu
         // Switch 2 titles: upload the CPU's bytes into the buffer instead, as CachedWriteMemory
         // does, so the page stays GPU-owned and nothing waits for the host GPU.
         static const int forced = [] {
-            const char* value = std::getenv("EDEN_NX2_INLINE_PAGE_WRITES");
+            const char* value = std::getenv("GIURAY_NX2_INLINE_PAGE_WRITES");
             return value == nullptr ? -1 : (value[0] == '0' ? 0 : 1);
         }();
         const bool inline_writes =
@@ -346,7 +346,7 @@ std::optional<VideoCore::RasterizerDownloadArea> BufferCache<P>::GetFlushArea(DA
     area->preemtive = !IsRegionGpuModified(device_addr_start_aligned,
                                            device_addr_end_aligned - device_addr_start_aligned);
     NoteReadBack(device_addr_start_aligned, device_addr_end_aligned, !area->preemtive);
-    // EDEN_NX2_READ_CHECK: a read an early download serves takes a flush, which compares
+    // GIURAY_NX2_READ_CHECK: a read an early download serves takes a flush, which compares
     // what it finds with the GPU's bytes now.
     const bool check_early =
         ReadChecks() && EarlyDownloadServes(device_addr_start_aligned,
@@ -581,7 +581,7 @@ void BufferCache<P>::RecordReadDownload(std::span<const std::pair<DAddr, u64>> r
             download.clean_ranges.Add(begin, end - begin);
             read_download_ranges.Add(begin, end - begin);
         };
-        // EDEN_NX2_READ_CHECK: what a synchronous flush (DownloadRangesMemory) copies for
+        // GIURAY_NX2_READ_CHECK: what a synchronous flush (DownloadRangesMemory) copies for
         // the read itself.
         std::unique_ptr<ReadCheck> check;
         boost::container::small_vector<Copy, 16> check_copies;
@@ -691,7 +691,7 @@ void BufferCache<P>::RecordReadDownload(std::span<const std::pair<DAddr, u64>> r
                 });
             }
         }
-        // EDEN_NX2_READ_CHECK: what early downloads brought to the read's pages before it
+        // GIURAY_NX2_READ_CHECK: what early downloads brought to the read's pages before it
         // came. No longer GPU-modified, they are compared as they landed.
         struct LandedCopy {
             u64 offset; ///< In the check's staging, past its own offset
@@ -724,7 +724,7 @@ void BufferCache<P>::RecordReadDownload(std::span<const std::pair<DAddr, u64>> r
                 TakeEarlyLanded(own_addr, own_size, add_landed);
             }
         }
-        // EDEN_NX2_READ_CHECK: a check whose read's bytes other downloads bring is a download of its own.
+        // GIURAY_NX2_READ_CHECK: a check whose read's bytes other downloads bring is a download of its own.
         const bool check_only = !early && copies.empty() && check && !check_copies.empty();
         if (copies.empty() && !check_only) {
             return;
@@ -792,7 +792,7 @@ std::optional<u64> BufferCache<P>::FinishReadDownloads(DAddr device_addr, u64 si
         // The newest one over the range: those before it are written first.
         std::optional<u64> tick;
         for (const ReadDownload& download : read_downloads) {
-            // EDEN_NX2_READ_CHECK: a check alone is waited for too, as its read's download.
+            // GIURAY_NX2_READ_CHECK: a check alone is waited for too, as its read's download.
             if (download.write_ranges.Intersects(device_addr, size) ||
                 (download.check && download.check->own.Intersects(device_addr, size))) {
                 tick = download.tick;
@@ -820,7 +820,7 @@ std::optional<u64> BufferCache<P>::FinishReadDownloads(DAddr device_addr, u64 si
 
 template <class P>
 void BufferCache<P>::OutdateReadDownloads(DAddr device_addr, u64 size) {
-    // EDEN_NX2_READ_CHECK: the GPU's copy gets newer bytes where an early download landed,
+    // GIURAY_NX2_READ_CHECK: the GPU's copy gets newer bytes where an early download landed,
     // which no read compares. A query result copy (SyncValues) is no GPU write the cache records:
     // a synchronous flush doesn't download it, and guest memory gets the result once the query
     // cache writes it there. MarkWrittenBuffer's bytes are GPU-modified from now on, which
@@ -1134,11 +1134,11 @@ void BufferCache<P>::WriteReadDownloads(u64 tick, VideoCore::AsyncReadback::Land
                                               end - start);
                     });
             }
-            // EDEN_NX2_READ_CHECK: what early downloads brought, for the reads they serve.
+            // GIURAY_NX2_READ_CHECK: what early downloads brought, for the reads they serve.
             if (download.early && ReadChecks()) {
                 NoteEarlyLanded(download, cpu_written);
             }
-            // EDEN_NX2_READ_CHECK: what later reads' checks find of an earlier download where they kept its bytes.
+            // GIURAY_NX2_READ_CHECK: what later reads' checks find of an earlier download where they kept its bytes.
             for (size_t later = 1; later < read_downloads.size(); ++later) {
                 if (read_downloads[later].check) {
                     NoteLandedBytes(*read_downloads[later].check, download.write_ranges,
@@ -1334,7 +1334,7 @@ void BufferCache<P>::CheckReadDownload(const ReadCheck& check,
     if (now >= read_check.last_log + 10) {
         read_check.last_log = now;
         LOG_INFO(HW_GPU,
-                 "Read download check (EDEN_NX2_READ_CHECK): {} downloads compared "
+                 "Read download check (GIURAY_NX2_READ_CHECK): {} downloads compared "
                  "with a synchronous flush, {} KiB; {} bytes differ (landed by the reading "
                  "thread {}, by a GPU-side write {}, after the host GPU ran them {}), {} "
                  "GPU-modified bytes no download brought (both must stay 0); {} bytes got newer "
@@ -1380,7 +1380,7 @@ void BufferCache<P>::ClearDownload(DAddr device_addr, u64 size) {
 template <class P>
 void BufferCache<P>::ClearReplacedDownload(DAddr device_addr, u64 size) {
     ClearFenceDownloads(device_addr, size);
-    // EDEN_NX2_READ_CHECK: a newer value there, as without early downloads.
+    // GIURAY_NX2_READ_CHECK: a newer value there, as without early downloads.
     if (!early_landed.empty()) {
         ForgetEarlyLanded(device_addr, size);
     }
@@ -2115,7 +2115,7 @@ Common::RangeSet<DAddr> BufferCache<P>::PendingCpuWriteRanges() {
 template <class P>
 void BufferCache<P>::WriteDownloadedMemory(const Common::RangeSet<DAddr>& cpu_written,
                                            DAddr device_addr, const u8* data, u64 size) {
-    // EDEN_NX2_READ_CHECK: newer GPU bytes than an early download brought before.
+    // GIURAY_NX2_READ_CHECK: newer GPU bytes than an early download brought before.
     if (!early_landed.empty()) {
         ForgetEarlyLanded(device_addr, size);
     }
@@ -2571,7 +2571,7 @@ void BufferCache<P>::BindHostGraphicsUniformBuffer(size_t stage, u32 index, u32 
         if constexpr (!IS_OPENGL && VideoCommon::StreamUniformReusable<Runtime>) {
             // The same bytes as this slot's previous bind, in the same command buffer: bind that
             // stream allocation again instead of allocating and copying (uniform_stream_reuse.h).
-            // EDEN_NX2_UBOREUSE=0 turns it off.
+            // GIURAY_NX2_UBOREUSE=0 turns it off.
             if (VideoCommon::UniformStreamReuseEnabled()) {
                 streamed = VideoCommon::BindSmallUniformReusing(
                     runtime, device_memory, stage, index, binding_index, device_addr, size);
@@ -3344,8 +3344,8 @@ auto BufferCache<P>::Nx2ReadListCopy(DAddr device_addr, std::span<u8> out, bool 
             }
             const Nx2ListPage& entry = it->second;
             if (entry.draw_written) {
-                // EDEN_NX2_CMDPAGE_DRAIN=1: drain and flush for every list on such pages.
-                static const bool always_drain = std::getenv("EDEN_NX2_CMDPAGE_DRAIN") != nullptr;
+                // GIURAY_NX2_CMDPAGE_DRAIN=1: drain and flush for every list on such pages.
+                static const bool always_drain = std::getenv("GIURAY_NX2_CMDPAGE_DRAIN") != nullptr;
                 if (always_drain) {
                     return Nx2ListRead::Unknown;
                 }
@@ -3696,7 +3696,7 @@ bool BufferCache<P>::SynchronizeBuffer(Buffer& buffer, DAddr device_addr, u32 si
         const auto add_upload = [&](DAddr start, DAddr end) {
             if (start == end) return;
             const u64 range_size = end - start;
-            ForgetUploadedEarlyLanded(start, range_size);  // EDEN_NX2_READ_CHECK
+            ForgetUploadedEarlyLanded(start, range_size);  // GIURAY_NX2_READ_CHECK
             upload_copies.push_back(BufferCopy{
                 .src_offset = total_size_bytes,
                 .dst_offset = start - buffer_start,
@@ -3731,7 +3731,7 @@ bool BufferCache<P>::SynchronizeBuffer(Buffer& buffer, DAddr device_addr, u32 si
         u64 largest_copy = 0;
         DAddr buffer_start = buffer.CpuAddr();
         for_each_upload_range([&](u64 device_addr_out, u64 range_size) {
-            ForgetUploadedEarlyLanded(device_addr_out, range_size);  // EDEN_NX2_READ_CHECK
+            ForgetUploadedEarlyLanded(device_addr_out, range_size);  // GIURAY_NX2_READ_CHECK
             copies.push_back(BufferCopy{
                 .src_offset = total_size_bytes,
                 .dst_offset = device_addr_out - buffer_start,
@@ -4112,7 +4112,7 @@ void BufferCache<P>::TraceTablePointer(bool compute, size_t stage, size_t ssbo_i
     // A table entry is read here from guest memory, and again by the shader from the holder's
     // host buffer. Logs each change of a slot's entry or size, and whether the two copies of the
     // entry can differ: GPU-written (host newer) or CPU-written and not yet uploaded (guest newer).
-    static const bool enabled = std::getenv("EDEN_NX2_TABLE_POINTER_TRACE") != nullptr;
+    static const bool enabled = std::getenv("GIURAY_NX2_TABLE_POINTER_TRACE") != nullptr;
     if (!enabled) {
         return;
     }
@@ -4214,7 +4214,7 @@ Binding BufferCache<P>::StorageBufferBinding(GPUVAddr ssbo_addr, u32 cbuf_index,
             if (native_pointer) {
                 const u32 bare = (std::min)(memory_layout_size, static_cast<u32>(8_MiB));
                 // Mario Kart World's lighting passes read past 8 MiB from theirs, inside the size
-                // word after the pointer (Eglantine #609 reads it): capped at 8 MiB those reads
+                // word after the pointer (upstream #609 reads it): capped at 8 MiB those reads
                 // came back zero and lit land and characters too dark. A read-only compute binding
                 // takes a larger size word. Binding to the end of the mapping instead spanned
                 // Ocarina of Time's ~1 GiB heap and backed it with a 1 GiB buffer.

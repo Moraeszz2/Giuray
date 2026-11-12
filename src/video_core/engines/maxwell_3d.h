@@ -3209,7 +3209,7 @@ public:
     void CallConstBufferWords(Core::System& system, const u32* methods, const u32* arguments,
                               u32 count);
 
-    /// GPU thread split with macros on its front half (gpu_split.h, EDEN_NX2_SPLIT=2), called by
+    /// GPU thread split with macros on its front half (gpu_split.h, GIURAY_NX2_SPLIT=2), called by
     /// the front instead of CallMethod: runs macros and macro uploads against a copy of the
     /// registers and sends the register writes to the back thread.
     void FrontCallMethod(Core::System& system, VideoCommon::GpuSplit& split, u32 method,
@@ -3328,7 +3328,7 @@ private:
     }
 
     /// CallMethodFast for a state register (not in execution_mask): a write of the value the
-    /// register holds changes nothing (EDEN_NX2_SKIP_SAME=0 keeps it).
+    /// register holds changes nothing (GIURAY_NX2_SKIP_SAME=0 keeps it).
     void WriteStateRegister(u32 method, u32 method_argument) {
         const u32 argument = ProcessShadowRam(method, method_argument);
         if (!SkipSameValueWrites() || regs.reg_array[method] != argument) {
@@ -3343,7 +3343,7 @@ private:
     /// CallMethod with every check, for the cases and tools CallMethodFast leaves out.
     void CallMethodSlow(Core::System& system, u32 method, u32 method_argument, bool is_last_call);
     void CallMethodFast(u32 method, u32 method_argument, bool is_last_call);
-    /// EDEN_NX2_PERF_VERIFY: CallMethodFast's register state against CallMethodSlow's.
+    /// GIURAY_NX2_PERF_VERIFY: CallMethodFast's register state against CallMethodSlow's.
     void VerifyCallMethod(Core::System& system, u32 method, u32 method_argument, bool is_last_call);
 
     /// Retrieves information about a specific TIC entry from the TIC buffer.
@@ -3417,7 +3417,7 @@ private:
     size_t recent_write_index = 0;
     const bool record_write_history{
 #ifdef NDEBUG
-        std::getenv("EDEN_NX2_3D_HISTORY") != nullptr
+        std::getenv("GIURAY_NX2_3D_HISTORY") != nullptr
 #else
         true
 #endif
@@ -3429,15 +3429,15 @@ private:
         recent_writes[recent_write_index++ % recent_writes.size()] = {method, argument, amount, pending};
     }
     void DumpRecentWrites(u32 method);
-    // EDEN_NX2_3D_METHODS: log the first write to each 3D register (finds methods Eden doesn't
+    // GIURAY_NX2_3D_METHODS: log the first write to each 3D register (finds methods Eden doesn't
     // model). Read per engine, not at static initialization, which runs before the frontend
     // loads nx2_switches.txt.
-    const bool trace_first_method_writes = std::getenv("EDEN_NX2_3D_METHODS") != nullptr;
-    // EDEN_NX2_SKIP_SAME and EDEN_NX2_PERF_VERIFY, read per engine like the switch above. Every
+    const bool trace_first_method_writes = std::getenv("GIURAY_NX2_3D_METHODS") != nullptr;
+    // GIURAY_NX2_SKIP_SAME and GIURAY_NX2_PERF_VERIFY, read per engine like the switch above. Every
     // method checks them, so they are members rather than function statics (MSVC reads a
     // thread-local to check a static's initialization on every call).
     const bool skip_same_value_writes = [] {
-        const char* value = std::getenv("EDEN_NX2_SKIP_SAME");
+        const char* value = std::getenv("GIURAY_NX2_SKIP_SAME");
         return value == nullptr || value[0] != '0';
     }();
     const bool perf_verify = VideoCommon::Nx2Perf::Verify();
@@ -3479,7 +3479,7 @@ private:
     void FinishFrontMacro(Core::System& system);
     std::unique_ptr<FrontState> front;
     bool front_macros{};
-    // EDEN_NX2_SPLIT_VERIFY: the last SET_SHADOW_RAM_CONTROL writes each side saw (argument,
+    // GIURAY_NX2_SPLIT_VERIFY: the last SET_SHADOW_RAM_CONTROL writes each side saw (argument,
     // mode before, path), printed when the sides disagree.
     struct ControlWrite {
         u32 argument;

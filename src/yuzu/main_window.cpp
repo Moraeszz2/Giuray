@@ -8,7 +8,6 @@
 #undef VMA_IMPLEMENTATION
 #endif
 
-#include <QSysInfo>
 #include <boost/algorithm/string/split.hpp>
 #include "common/fs/path_util.h"
 #include "common/settings.h"
@@ -49,7 +48,7 @@
 #include "yuzu/recommended_settings_dialog.h"
 #include "yuzu/shader_warm_dialog.h"
 #include "video_core/shader_warm/shader_warm_builder.h"
-#ifdef LICHII_NX_TOOLS
+#ifdef GIURAY_NX_TOOLS
 #include "yuzu/nx_tools.h"
 #endif
 
@@ -67,6 +66,7 @@
 
 #include "util/clickable_label.h"
 #include "util/controller_navigation.h"
+#include "util/nav_sidebar.h"
 #include "util/overlay_dialog.h"
 
 #include "multiplayer/state.h"
@@ -96,6 +96,7 @@
 #include <QScreen>
 #include <QShortcut>
 #include <QStatusBar>
+#include <QToolButton>
 #include <QtConcurrentRun>
 
 #ifdef __APPLE__
@@ -142,7 +143,6 @@ static FileSys::VirtualFile VfsDirectoryCreateFileWrapper(const FileSys::Virtual
 // Common //
 #include "common/fs/fs.h"
 #include "common/logging.h"
-#include "common/memory_detect.h"
 #include "common/scm_rev.h"
 #include "common/scope_exit.h"
 #include "common/string_util.h"
@@ -205,6 +205,9 @@ static FileSys::VirtualFile VfsDirectoryCreateFileWrapper(const FileSys::Virtual
 
 #include "qt_common/gamemode.h"
 
+#include <QFontDatabase>
+#include <QPainter>
+
 #ifdef _WIN32
 #include "common/windows/timer_resolution.h"
 #include "core/core_timing.h"
@@ -221,6 +224,16 @@ static inline void ApplyWindowsTitleBarDarkMode(HWND hwnd, bool enabled) {
     if (!hwnd)
         return;
     BOOL val = enabled ? TRUE : FALSE;
+    // Windows 11: the caption, its text and the border take the dark theme's colors
+    // (DWMWA_BORDER_COLOR 34, DWMWA_CAPTION_COLOR 35, DWMWA_TEXT_COLOR 36; COLORREF is 0x00BBGGRR),
+    // so the title bar runs into the menu bar. Earlier versions ignore them.
+    constexpr COLORREF DefaultColor = 0xFFFFFFFF;
+    const COLORREF border = enabled ? RGB(32, 32, 36) : DefaultColor;
+    const COLORREF caption = enabled ? RGB(14, 14, 16) : DefaultColor;
+    const COLORREF text = enabled ? RGB(228, 228, 231) : DefaultColor;
+    DwmSetWindowAttribute(hwnd, 34, &border, sizeof(border));
+    DwmSetWindowAttribute(hwnd, 35, &caption, sizeof(caption));
+    DwmSetWindowAttribute(hwnd, 36, &text, sizeof(text));
     // 20 = Win11/21H2+
     if (SUCCEEDED(DwmSetWindowAttribute(hwnd, 20, &val, sizeof(val))))
         return;
@@ -931,11 +944,25 @@ void MainWindow::InitializeWidgets() {
 
     game_list = new GameList(QtCommon::vfs, QtCommon::provider.get(), *play_time_manager,
                              *QtCommon::system, this);
+    game_list->SetLibraryMenus(ui->menu_Game_List_Mode, ui->menuGame_Icon_Size);
     ui->horizontalLayout->addWidget(game_list);
 
     game_list_placeholder = new GameListPlaceholder(this);
     ui->horizontalLayout->addWidget(game_list_placeholder);
     game_list_placeholder->setVisible(false);
+
+    nav_sidebar = new NavSidebar(this);
+    auto* show_library = new QAction(tr("Library"), this);
+    connect(show_library, &QAction::triggered, this, [this] { game_list->SetFilterFocus(); });
+    nav_sidebar->AddAction(show_library, NavSidebar::Glyph::Library, tr("Library"))
+        ->setProperty("active", true);
+    nav_sidebar->AddAction(ui->action_Load_File, NavSidebar::Glyph::Open, tr("Open"));
+    nav_sidebar->AddAction(ui->action_Install_File_NAND, NavSidebar::Glyph::Install, tr("Install"));
+    nav_sidebar->AddAction(ui->action_View_Lobby, NavSidebar::Glyph::Multiplayer, tr("Online"));
+    nav_sidebar->AddAction(ui->action_Configure, NavSidebar::Glyph::Settings, tr("Settings"),
+                           true);
+    ui->horizontalLayout->insertWidget(0, nav_sidebar);
+    nav_sidebar->Follow({game_list, game_list_placeholder});
 
     loading_screen = new LoadingScreen(this);
     loading_screen->hide();
@@ -997,6 +1024,17 @@ void MainWindow::InitializeWidgets() {
 
     statusBar()->addPermanentWidget(multiplayer_state->GetStatusText(), 0);
     statusBar()->addPermanentWidget(multiplayer_state->GetStatusIcon(), 0);
+
+    // The Ocarina of Time multiplayer's room, at the far right; a click opens its window.
+    mp_status_button = new QPushButton();
+    mp_status_button->setObjectName(QStringLiteral("MultiplayerStatusButton"));
+    mp_status_button->setFocusPolicy(Qt::NoFocus);
+    mp_status_button->setIconSize(QSize{8, 8});
+    connect(mp_status_button, &QPushButton::clicked, this, &MainWindow::OnOcarinaMultiplayer);
+    connect(&mp_status_timer, &QTimer::timeout, this, &MainWindow::UpdateMultiplayerStatus);
+    mp_status_timer.start(1000);
+    UpdateMultiplayerStatus();
+    statusBar()->addPermanentWidget(mp_status_button, 0);
 
     tas_label = new QLabel();
     tas_label->setObjectName(QStringLiteral("TASlabel"));
@@ -1328,7 +1366,7 @@ void MainWindow::InitializeHotkeys() {
     hotkey_registry.LoadHotkeys();
 
     LinkActionShortcut(ui->action_Load_File, QStringLiteral("Load File"));
-    LinkActionShortcut(ui->action_Exit, QStringLiteral("Exit Eglantine"));
+    LinkActionShortcut(ui->action_Exit, QStringLiteral("Exit Giuray"));
     LinkActionShortcut(ui->action_Restart, QStringLiteral("Restart Emulation"));
     LinkActionShortcut(ui->action_Pause, QStringLiteral("Continue/Pause Emulation"));
     LinkActionShortcut(ui->action_Stop, QStringLiteral("Stop Emulation"));
@@ -1482,14 +1520,6 @@ void MainWindow::OnAppFocusStateChanged(Qt::ApplicationState state) {
 }
 
 void MainWindow::ConnectWidgetEvents() {
-    connect(game_list, &GameList::ReportCompatibilityRequested, this, [this](u64 program_id) {
-        if (!report_session || report_session->program_id != program_id || emulation_running ||
-            boot_in_progress || close_pending) {
-            return;
-        }
-        CompatibilityReporting::Dialog dialog(*report_session, this);
-        dialog.exec();
-    });
     connect(game_list, &GameList::BootGame, this, &MainWindow::BootGameFromList);
     connect(game_list, &GameList::GameChosen, this, &MainWindow::OnGameListLoadFile);
     connect(game_list, &GameList::OpenDirectory, this, &MainWindow::OnGameListOpenDirectory);
@@ -1514,7 +1544,7 @@ void MainWindow::ConnectWidgetEvents() {
     connect(game_list, &GameList::ExtractNupRequested, this, &MainWindow::OnGameListExtractNup);
     connect(game_list, &GameList::EditNupMetadataRequested, this,
             &MainWindow::OnGameListEditNupMetadata);
-#ifdef LICHII_NX_TOOLS
+#ifdef GIURAY_NX_TOOLS
     nx_tools = new NxTools(QtCommon::vfs, this);
     connect(nx_tools, &NxTools::RunningChanged, game_list, &GameList::SetNxToolRunning);
     connect(nx_tools, &NxTools::ArchivesChanged, this, &MainWindow::OnGameListRefresh);
@@ -1562,9 +1592,11 @@ void MainWindow::ConnectMenuEvents() {
         render_window->addAction(action);
     };
 
-    // Ocarina of Time multiplayer prototype: host or join a room.
-    auto* const multiplayer_action =
-        ui->menu_Tools->addAction(tr("Multiplayer (Ocarina of Time)..."));
+    // Ocarina of Time multiplayer: host or join a room. First in the Multiplayer menu.
+    auto* const multiplayer_action = new QAction(tr("Ocarina of Time Multiplayer..."), this);
+    QAction* const first_room_action = ui->menu_Multiplayer->actions().value(0);
+    ui->menu_Multiplayer->insertAction(first_room_action, multiplayer_action);
+    ui->menu_Multiplayer->insertSeparator(first_room_action);
     multiplayer_action->setShortcut(QKeySequence{Qt::CTRL | Qt::SHIFT | Qt::Key_M});
     connect_menu(multiplayer_action, &MainWindow::OnOcarinaMultiplayer);
 
@@ -1973,7 +2005,7 @@ bool MainWindow::LoadROM(const QString& filename, Service::AM::FrontendAppletPar
         case Core::SystemResultStatus::ErrorMemoryAllocation:
             QMessageBox::critical(
                 this, tr("Not enough memory to start the game"),
-                tr("Lichii could not allocate the game's memory. Close other applications and "
+                tr("Giuray could not allocate the game's memory. Close other applications and "
                    "check that your system has enough available memory and paging-file space, "
                    "then try again."));
             break;
@@ -2077,9 +2109,7 @@ void MainWindow::BootGame(const QString& filename, Service::AM::FrontendAppletPa
     if (close_pending) {
         return;
     }
-    LOG_INFO(Frontend, "Lichii starting...");
-    report_session.reset();
-    game_list->SetReportableProgramId(0);
+    LOG_INFO(Frontend, "Giuray starting...");
 
     if (params.program_id == 0 ||
         params.program_id > static_cast<u64>(Service::AM::AppletProgramId::MaxProgramId)) {
@@ -2171,79 +2201,6 @@ void MainWindow::BootGame(const QString& filename, Service::AM::FrontendAppletPa
     }
     LOG_INFO(Frontend, "Core load completed: elapsed_ms={}", load_timer.elapsed());
 
-    const auto report_program_id = QtCommon::system->GetApplicationProcessProgramID();
-    if (Settings::CurrentProgramIsSwitch2() && report_program_id != 0) {
-        auto& session = report_session.emplace();
-        session.program_id = report_program_id;
-        const FileSys::PatchManager pm(report_program_id,
-                                       QtCommon::system->GetFileSystemController(),
-                                       QtCommon::system->GetContentProvider());
-        if (const auto metadata = pm.GetControlMetadata(); metadata.first) {
-            session.title = QString::fromStdString(metadata.first->GetApplicationName());
-            session.game_version = QString::fromStdString(metadata.first->GetVersionString());
-        }
-        if (session.title.trimmed().isEmpty()) {
-            std::string title;
-            if (QtCommon::system->GetGameName(title) == Loader::ResultStatus::Success) {
-                session.title = QString::fromStdString(title);
-            }
-        }
-        FileSys::VirtualFile update_raw;
-        auto& report_loader = QtCommon::system->GetAppLoader();
-        report_loader.ReadUpdateRaw(update_raw);
-        QList<CompatibilityReporting::Addon> mods;
-        QList<CompatibilityReporting::Addon> updates;
-        for (const auto& patch : pm.GetPatches(update_raw)) {
-            auto* entries = patch.type == FileSys::PatchType::Mod      ? &mods
-                            : patch.type == FileSys::PatchType::Update ? &updates
-                                                                       : nullptr;
-            if (entries) {
-                entries->push_back({QString::fromStdString(patch.name),
-                                    QString::fromStdString(patch.version), patch.enabled});
-            }
-        }
-        if (report_loader.GetFileType() == Loader::FileType::NUP) {
-            std::string version;
-            if (report_loader.ReadDisplayVersion(version) == Loader::ResultStatus::Success &&
-                !version.empty()) {
-                session.game_version = QString::fromStdString(version);
-                updates.push_back(
-                    {QStringLiteral("Loaded NUP package"), session.game_version, true});
-            }
-        }
-        session.mods = CompatibilityReporting::SummarizeEnabledAddons(mods);
-        session.updates = CompatibilityReporting::SummarizeEnabledAddons(updates);
-        session.build = QStringLiteral("Lichii %1 (%2)")
-                            .arg(QString::fromUtf8(Common::g_build_version),
-                                 QString::fromUtf8(Common::g_scm_rev).left(12));
-#ifdef ARCHITECTURE_x86_64
-        session.cpu = QString::fromLatin1(Common::g_cpu_caps.cpu_string,
-                                          sizeof(Common::g_cpu_caps.cpu_string))
-                          .section(QChar{}, 0, 0)
-                          .trimmed();
-#endif
-        session.os = QSysInfo::prettyProductName();
-        const auto memory = Common::GetMemInfo().TotalPhysicalMemory;
-        if (memory != 0) {
-            session.ram =
-                QStringLiteral("%1 GiB").arg(double(memory) / (1024 * 1024 * 1024), 0, 'f', 1);
-        }
-        const auto& device_info = QtCommon::system->Renderer().GetDeviceInfo();
-        session.gpu = QString::fromStdString(device_info.model);
-        session.driver = QString::fromStdString(device_info.driver);
-        session.graphics_api = QString::fromStdString(device_info.api);
-        session.settings =
-            QStringLiteral("Launch settings: %1 mode; resolution scale %2x; "
-                           "GPU accuracy %3; asynchronous shaders %4.")
-                .arg(Settings::IsDockedMode() ? QStringLiteral("Docked")
-                                              : QStringLiteral("Handheld"))
-                .arg(Settings::values.resolution_info.up_factor)
-                .arg(Settings::values.gpu_accuracy.GetValue() == Settings::GpuAccuracy::High
-                         ? QStringLiteral("High")
-                         : QStringLiteral("Low"))
-                .arg(Settings::values.use_asynchronous_shaders.GetValue() ? QStringLiteral("on")
-                                                                          : QStringLiteral("off"));
-    }
 
     QtCommon::system->SetShuttingDown(false);
     game_list->setDisabled(true);
@@ -2487,8 +2444,6 @@ void MainWindow::OnEmulationStopped() {
     }
 
     emulation_running = false;
-
-    game_list->SetReportableProgramId(report_session ? report_session->program_id : 0);
 
     discord_rpc->Update();
     Common::FeralGamemode::Stop();
@@ -3454,6 +3409,55 @@ void MainWindow::OnLoadComplete() {
     }
 }
 
+void MainWindow::UpdateMultiplayerStatus() {
+    namespace Mp = Core::Nx2Multiplayer;
+    const bool in_room = Mp::InRoom();
+    const bool connected = in_room && Mp::Connected();
+    const QString code = QString::fromStdString(Mp::RoomCode());
+    QString text;
+    QColor dot;
+    if (!in_room) {
+        text = tr("Multiplayer off");
+        dot = QColor{0x71, 0x71, 0x7A};
+    } else if (connected) {
+        const int players = static_cast<int>(Mp::PlayerNames().size()) + 1;
+        text = code.isEmpty() ? tr("%n player(s)", "", players)
+                              : tr("Room %1 · %n player(s)", "", players).arg(code);
+        dot = QColor{0x22, 0xC5, 0x5E};
+    } else {
+        text = code.isEmpty() ? tr("Opening room...") : tr("Room %1 · waiting").arg(code);
+        dot = QColor{0xEA, 0xB3, 0x08};
+    }
+    if (mp_status_button->text() != text) {
+        mp_status_button->setText(text);
+    }
+    if (mp_status_dot != dot) {
+        mp_status_dot = dot;
+        const qreal ratio = devicePixelRatioF();
+        QPixmap pixmap{QSize{8, 8} * ratio};
+        pixmap.setDevicePixelRatio(ratio);
+        pixmap.fill(Qt::transparent);
+        QPainter painter{&pixmap};
+        painter.setRenderHint(QPainter::Antialiasing);
+        painter.setPen(Qt::NoPen);
+        painter.setBrush(dot);
+        painter.drawEllipse(QRectF{0, 0, 8, 8});
+        painter.end();
+        mp_status_button->setIcon(QIcon{pixmap});
+    }
+    const QString state = QLatin1String(connected ? "connected" : in_room ? "waiting" : "off");
+    if (mp_status_button->property("state").toString() != state) {
+        mp_status_button->setProperty("state", state);
+        mp_status_button->style()->polish(mp_status_button);
+    }
+    mp_status_button->setToolTip(QString::fromStdString(Mp::NetworkStatus()));
+    // The LAN room's long status text stays in its icon's tooltip.
+    if (multiplayer_state) {
+        multiplayer_state->GetStatusText()->setVisible(false);
+        multiplayer_state->GetStatusIcon()->setToolTip(multiplayer_state->GetStatusText()->text());
+    }
+}
+
 void MainWindow::OnOcarinaMultiplayer() {
     if (!mp_dialog) {
         mp_dialog = new MultiplayerDialog(
@@ -3522,48 +3526,6 @@ void MainWindow::ErrorDisplayRequestExit() {
     if (error_applet) {
         error_applet->reject();
     }
-}
-
-void MainWindow::OnMenuReportCompatibility() {
-    QtCommon::Frontend::Critical(
-        tr("Function Disabled"),
-        tr("Compatibility list reporting is currently disabled. Check back later!"));
-
-    // #if defined(ARCHITECTURE_x86_64) && !defined(__APPLE__)
-    //     const auto& caps = g_cpu_caps;
-    //     const bool has_fma = caps.fma;
-    //     const auto processor_count = std::thread::hardware_concurrency();
-    //     const bool has_4threads = processor_count == 0 || processor_count >= 4;
-    //     const bool has_8gb_ram = Common::GetMemInfo().TotalPhysicalMemory >= 8_GiB;
-    //     const bool has_broken_vulkan = UISettings::values.has_broken_vulkan;
-
-    //     if (!has_fma || !has_4threads || !has_8gb_ram || has_broken_vulkan) {
-    //         QMessageBox::critical(this, tr("Hardware requirements not met"),
-    //                               tr("Your system does not meet the recommended hardware
-    //                               requirements. "
-    //                                  "Compatibility reporting has been disabled."));
-    //         return;
-    //     }
-
-    //     if (!Settings::values.eden_token.GetValue().empty() &&
-    //         !Settings::values.eden_username.GetValue().empty()) {
-    //     } else {
-    //         QMessageBox::critical(
-    //             this, tr("Missing yuzu Account"),
-    //             tr("In order to submit a game compatibility test case, you must set up your web
-    //             token "
-    //                "and "
-    //                "username.<br><br/>To link your eden account, go to Emulation &gt;
-    //                Configuration "
-    //                "&gt; "
-    //                "Web."));
-    //     }
-    // #else
-    //     QMessageBox::critical(this, tr("Hardware requirements not met"),
-    //                           tr("Your system does not meet the recommended hardware
-    //                           requirements. "
-    //                              "Compatibility reporting has been disabled."));
-    // #endif
 }
 
 void MainWindow::OpenURL(const QUrl& url) {
@@ -4362,7 +4324,7 @@ void MainWindow::OnGameListRefresh() {
     SetFirmwareVersion();
 }
 
-#ifdef LICHII_NX_TOOLS
+#ifdef GIURAY_NX_TOOLS
 void MainWindow::OnGameListNxTool(const std::string& game_path,
                                   void (NxTools::*tool)(const std::string&)) {
     // An archive edited in place must not be read by a running game.
@@ -4955,7 +4917,7 @@ void MainWindow::OnEmulatorUpdateAvailable() {
     const auto result = update_future.result();
     if (result.failure == UpdateChecker::Failure::RateLimited) {
         statusBar()->showMessage(
-            tr("Could not check for updates: GitHub rate limit reached. Lichii will try again at "
+            tr("Could not check for updates: GitHub rate limit reached. Giuray will try again at "
                "the next start."),
             15000);
         return;
@@ -4995,11 +4957,6 @@ void MainWindow::OnEmulatorUpdateAvailable() {
 void MainWindow::OnApplicationChanged(u64 program_id) {
     if (!emulation_running || program_id == 0)
         return;
-
-    if (report_session && report_session->program_id != program_id) {
-        report_session.reset();
-        game_list->SetReportableProgramId(0);
-    }
 
     std::string title_name;
     std::string title_version;
@@ -5480,7 +5437,7 @@ void MainWindow::OnCheckGraphicsBackend() {
         UISettings::values.gui_force_x11.SetValue(true);
         GraphicsBackend::SetForceX11(true);
         QMessageBox::information(this, tr("Restart Required"),
-                                 tr("Restart Lichii to apply the X11 backend."));
+                                 tr("Restart Giuray to apply the X11 backend."));
     }
 }
 #endif
@@ -5599,8 +5556,8 @@ bool MainWindow::ConfirmClose() {
         UISettings::values.confirm_before_stopping.GetValue() == ConfirmStop::Ask_Based_On_Game)
         return true;
 
-    const auto text = tr("Are you sure you want to close Lichii?");
-    return question(this, tr("Lichii"), text);
+    const auto text = tr("Are you sure you want to close Giuray?");
+    return question(this, tr("Giuray"), text);
 }
 
 void MainWindow::closeEvent(QCloseEvent* event) {
@@ -5706,7 +5663,7 @@ bool MainWindow::ConfirmChangeGame() {
 
     // Use custom question to link controller navigation
     return question(
-        this, tr("Lichii"),
+        this, tr("Giuray"),
         tr("Are you sure you want to stop the emulation? Any unsaved progress will be lost."),
         QMessageBox::Yes | QMessageBox::No, QMessageBox::Yes);
 }
@@ -5715,10 +5672,10 @@ bool MainWindow::ConfirmForceLockedExit() {
     if (QtCommon::emu_thread == nullptr)
         return true;
 
-    const auto text = tr("The currently running application has requested Lichii to not exit.\n\n"
+    const auto text = tr("The currently running application has requested Giuray to not exit.\n\n"
                          "Would you like to bypass this and exit anyway?");
 
-    return question(this, tr("Lichii"), text);
+    return question(this, tr("Giuray"), text);
 }
 
 void MainWindow::RequestGameExit() {
@@ -5744,6 +5701,27 @@ static void AdjustLinkColor() {
 
     if (qApp->palette().color(QPalette::Link) != new_pal.color(QPalette::Link))
         qApp->setPalette(new_pal);
+}
+
+/// The Giuray theme's typeface (Inter, bundled), or the application's own font for other themes.
+static void ApplyThemeFont(bool giuray) {
+    static const QFont system_font = QApplication::font();
+    static const bool loaded = [] {
+        bool ok = true;
+        for (const char* weight : {"Regular", "Medium", "SemiBold"}) {
+            ok = QFontDatabase::addApplicationFont(
+                     QStringLiteral(":/fonts/Inter-%1.ttf").arg(QLatin1String(weight))) >= 0 &&
+                 ok;
+        }
+        return ok;
+    }();
+    if (giuray && loaded) {
+        QFont font{QStringLiteral("Inter")};
+        font.setPixelSize(13);
+        QApplication::setFont(font);
+    } else {
+        QApplication::setFont(system_font);
+    }
 }
 
 void MainWindow::UpdateUITheme() {
@@ -5792,6 +5770,8 @@ void MainWindow::UpdateUITheme() {
         qApp->setStyleSheet({});
         setStyleSheet({});
     }
+
+    ApplyThemeFont(current_theme == QStringLiteral("giuray"));
 
 #ifdef _WIN32
     RemoveTitlebarFilter();

@@ -236,7 +236,7 @@ u32 RandomArgument(std::mt19937& rng, u32 method, const Maxwell3D& engine) {
     return rng() % 64;
 }
 
-/// EDEN_NX2_DMA_READ_VERIFY for a test, restored after it.
+/// GIURAY_NX2_DMA_READ_VERIFY for a test, restored after it.
 struct DmaReadVerifyScope {
     DmaReadVerifyScope() : previous{VideoCore::AsyncReadback::g_dma_read_verify.exchange(true)} {}
     ~DmaReadVerifyScope() {
@@ -1396,7 +1396,7 @@ TEST_CASE("Split macro DMA reads wait only for the queued work that can write th
     split.Drain(VideoCommon::DrainSite::Other);
     CHECK(engine.regs.reg_array[state] == 0x33333333);
 
-    // With EDEN_NX2_DMA_READ_VERIFY, a read that needn't drain drains anyway to compare its words.
+    // With GIURAY_NX2_DMA_READ_VERIFY, a read that needn't drain drains anyway to compare its words.
     {
         const DmaReadVerifyScope verify;
         blocking(release[3], Writes::Noted);

@@ -3,7 +3,7 @@ python vcalls.py <slot offset>"""
 import struct
 import sys
 
-DUMP = "C:/Users/gui62/lichii-perf/mp/private/main.bin"
+DUMP = "C:/Users/gui62/giuray-work/mp/private/main.bin"
 data = open(DUMP, "rb").read()
 slot = int(sys.argv[1], 16)
 code_end = 0x3C47000

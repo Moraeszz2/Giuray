@@ -359,7 +359,7 @@ struct BufferCacheTestAccess {
     static size_t ReadDownloads(Cache& cache) {
         return cache.read_downloads.size();
     }
-    /// Every read download compared with a synchronous flush (EDEN_NX2_READ_CHECK=1).
+    /// Every read download compared with a synchronous flush (GIURAY_NX2_READ_CHECK=1).
     static void CheckEveryRead(Cache& cache) {
         cache.read_check.every = 1;
     }
@@ -374,7 +374,7 @@ namespace {
 
 using Access = VideoCommon::BufferCacheTestAccess;
 
-/// EDEN_NX2_READ_CHECK for a test, restored after it.
+/// GIURAY_NX2_READ_CHECK for a test, restored after it.
 struct ReadCheckScope {
     explicit ReadCheckScope(u64 every)
         : previous{VideoCore::AsyncReadback::g_read_check_every.exchange(every)} {}
@@ -979,7 +979,7 @@ TEST_CASE("Uniform keep never keeps across command buffers", "[buffer_ports]") {
 
 TEST_CASE("Uniform keep verify counts guest writes the delta did not report",
           "[buffer_ports]") {
-    KeepFixture f{"EDEN_NX2_UBO_KEEP_VERIFY"};
+    KeepFixture f{"GIURAY_NX2_UBO_KEEP_VERIFY"};
     const VideoCommon::Nx2FastDraw::Delta unchanged{};
     f.Draw(nullptr);
     f.Draw(&unchanged);
@@ -2134,7 +2134,7 @@ TEST_CASE("Read download check leaves out early downloaded bytes an upload repla
     REQUIRE(Access::ReadChecks(*f.cache).uncovered == 0);
 }
 
-TEST_CASE("EDEN_NX2_READ_CHECK values select how many read downloads are checked",
+TEST_CASE("GIURAY_NX2_READ_CHECK values select how many read downloads are checked",
           "[buffer_ports]") {
     using VideoCore::AsyncReadback::ParseReadCheck;
     REQUIRE(ParseReadCheck(nullptr) == 0);
@@ -2144,7 +2144,7 @@ TEST_CASE("EDEN_NX2_READ_CHECK values select how many read downloads are checked
     REQUIRE(ParseReadCheck("16") == 16);
 }
 
-TEST_CASE("EDEN_NX2_READ_CHECK=1 compares every read download", "[buffer_ports]") {
+TEST_CASE("GIURAY_NX2_READ_CHECK=1 compares every read download", "[buffer_ports]") {
     Fixture f;
     const ReadCheckScope check{1};
     const auto id = Access::Add(*f.cache, 0x20000, 0x10000);

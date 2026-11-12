@@ -1,9 +1,9 @@
-# Building Eglantine
+# Building Giuray
 
 > [!WARNING]
 > This guide is intended for developers ONLY. If you are not a developer or packager, you are unlikely to receive support.
 
-This is a full-fledged guide to build Eglantine on all supported platforms.
+This is a full-fledged guide to build Giuray on all supported platforms.
 
 If you already have a development environment set up:
 
@@ -20,11 +20,11 @@ First, you must [install some dependencies](Deps.md).
 
 ## Clone
 
-Next, you will want to clone Eglantine via the terminal:
+Next, you will want to clone Giuray via the terminal:
 
 ```sh
-git clone https://github.com/Djihads80/Eglantine.git
-cd Eglantine
+git clone https://github.com/Moraeszz2/Giuray.git
+cd Giuray
 ```
 
 Or use Qt Creator (Create Project -> Import Project -> Git Clone).
@@ -47,7 +47,7 @@ This is the recommended GUI method for Linux, macOS, and Windows.
 > [!WARNING]
 > On MSYS2, to use Qt Creator you are recommended to *also* install Qt from the online installer, ensuring to select the "MinGW" version.
 
-Open the CMakeLists.txt file in your cloned directory via File -> Open File or Project (Ctrl+O), if you didn't clone Eglantine via the project import tool.
+Open the CMakeLists.txt file in your cloned directory via File -> Open File or Project (Ctrl+O), if you didn't clone Giuray via the project import tool.
 
 Select your desired "kit" (usually, the default is okay). RelWithDebInfo or Release is recommended:
 
@@ -66,7 +66,7 @@ Hit "Configure Project", then wait for CMake to finish configuring (may take a w
 >For all systems:
 >
 >- *CMake* **MUST** be in your PATH (and also *ninja*, if you are using it as `<GENERATOR>`)
->- You *MUST* be in the cloned *Eglantine* directory
+>- You *MUST* be in the cloned *Giuray* directory
 >
 >On Windows:
 >
@@ -135,12 +135,12 @@ cmake -S . -B build -G "<GENERATOR>" -DCMAKE_C_COMPILER=clang-cl -DCMAKE_CXX_COM
 <img src="https://user-images.githubusercontent.com/42481638/216899164-6cee8482-3d59-428f-b1bc-e6dc793c9b20.png" width="500">
 
 - Click OK; now CLion will build a directory and index your code to allow for IntelliSense. Please be patient.
-- Once this process has been completed (No loading bar bottom right), you can now build Eglantine
-- In the top right, click on the drop-down menu, select all configurations, then select Eglantine
+- Once this process has been completed (No loading bar bottom right), you can now build Giuray
+- In the top right, click on the drop-down menu, select all configurations, then select Giuray
 
 <img src="https://user-images.githubusercontent.com/42481638/216899226-975048e9-bc6d-4ec1-bc2d-bd8a1e15ed04.png" height="500" >
 
-- Now run by clicking the play button or pressing Shift+F10, and Eglantine will auto-launch once built.
+- Now run by clicking the play button or pressing Shift+F10, and Giuray will auto-launch once built.
 
 <img src="https://user-images.githubusercontent.com/42481638/216899275-d514ec6a-e563-470e-81e2-3e04f0429b68.png" width="500">
 </details>
@@ -168,7 +168,7 @@ Otherwise, feel free to ask for help in Stoat or Discord.
 
 ### Linker errors with the bundled Qt on Visual Studio 2022
 
-On MSVC, a prebuilt static Qt is downloaded by default (`YUZU_USE_BUNDLED_QT`). It is built with a newer MSVC toolset than the one in Visual Studio 2022, so with VS 2022 (MSVC 14.44) configuring succeeds but linking `lichii.exe` fails with unresolved symbols such as `__std_rotate` or `__std_unique_4`, ending in `LNK1120`.
+On MSVC, a prebuilt static Qt is downloaded by default (`YUZU_USE_BUNDLED_QT`). It is built with a newer MSVC toolset than the one in Visual Studio 2022, so with VS 2022 (MSVC 14.44) configuring succeeds but linking `giuray.exe` fails with unresolved symbols such as `__std_rotate` or `__std_unique_4`, ending in `LNK1120`.
 
 Use the same Qt as CI instead of the bundled one:
 
@@ -200,10 +200,10 @@ cmake --build build
 
 Your compiled executable will be in:
 
-- `build/bin/eglantine.exe` for Windows,
-- `build/bin/Eglantine.app/Contents/MacOS/eglantine` for macOS,
-- and `build/bin/eglantine` for others.
+- `build/bin/giuray.exe` for Windows,
+- `build/bin/Giuray.app/Contents/MacOS/giuray` for macOS,
+- and `build/bin/giuray` for others.
 
 ## Scripts
 
-Take a look at our [CI scripts](https://github.com/Eglantine-CI/Workflow). You can use `.ci/common/configure.sh` on any POSIX-compliant shell, but you are heavily encouraged to instead write your own based. It's not really that hard, provided you can read CMake.
+You can use `.ci/common/configure.sh` on any POSIX-compliant shell, but you are heavily encouraged to instead write your own based. It's not really that hard, provided you can read CMake.

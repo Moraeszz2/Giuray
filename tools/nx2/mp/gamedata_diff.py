@@ -8,7 +8,7 @@ import socket
 import struct
 import sys
 
-SNAP = "C:/Users/gui62/lichii-perf/mp/gamedata_snap.pkl"
+SNAP = "C:/Users/gui62/giuray-work/mp/gamedata_snap.pkl"
 sock = socket.create_connection(("127.0.0.1", 6545), timeout=30)
 buffer = b""
 next_id = 1

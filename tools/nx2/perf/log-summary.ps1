@@ -3,12 +3,12 @@
 
 <#
 .SYNOPSIS
-Summarizes what an eden_log.txt already records about performance: frame times per 600
+Summarizes what an giuray_log.txt already records about performance: frame times per 600
 presents, runtime pipeline builds and the draws they held, pipeline evictions, and guest CPU
 reads of GPU-written memory (reactive flushing / read traps).
 
 .EXAMPLE
-pwsh -File tools/nx2/perf/log-summary.ps1 "$env:APPDATA\eden\log\eden_log.txt" -From 600 -To 1800
+pwsh -File tools/nx2/perf/log-summary.ps1 "$env:APPDATA\eden\log\giuray_log.txt" -From 600 -To 1800
 #>
 param(
     [Parameter(Mandatory)] [string] $Log,

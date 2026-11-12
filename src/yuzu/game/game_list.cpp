@@ -26,7 +26,7 @@
 #include "common/fs/fs_util.h"
 #include "core/core.h"
 #include "core/file_sys/nup_writer.h"
-#ifdef LICHII_NX_TOOLS
+#ifdef GIURAY_NX_TOOLS
 #include "yuzu/nx_tools.h"
 #endif
 #include "core/file_sys/patch_manager.h"
@@ -38,8 +38,10 @@
 #include "qt_common/util/game.h"
 #include "yuzu/game/carousel.h"
 #include "yuzu/game/game_grid.h"
+#include "yuzu/game/game_hero.h"
 #include "yuzu/game/game_list.h"
 #include "yuzu/game/game_tree.h"
+#include "yuzu/game/library_delegate.h"
 #include "yuzu/game/search_field.h"
 #include "yuzu/main_window.h"
 #include "yuzu/shader_warm_dialog.h"
@@ -121,10 +123,48 @@ void GameList::SetupViews() {
     tree_view = new GameTree(this);
     grid_view = new GameGrid(this);
     carousel_view = new GameCarousel(this);
+    tree_view->setObjectName(QStringLiteral("GameTree"));
+    grid_view->setObjectName(QStringLiteral("GameGrid"));
+    carousel_view->setObjectName(QStringLiteral("GameCarousel"));
+    tree_view->setItemDelegate(new LibraryDelegate(tree_view));
 
     tree_view->SetModel(item_model);
     grid_view->SetModel(item_model);
     carousel_view->SetModel(item_model);
+
+    hero = new GameHero(this);
+    hero->setVisible(false);
+    connect(carousel_view->selectionModel(), &QItemSelectionModel::currentChanged, hero,
+            [this](const QModelIndex& current) { hero->SetIndex(current); });
+    connect(item_model, &QAbstractItemModel::modelReset, hero, [this] { hero->SetIndex({}); });
+    connect(hero, &GameHero::PlayRequested, this,
+            [this] { ValidateEntry(carousel_view->currentIndex()); });
+    connect(hero, &GameHero::PropertiesRequested, this, [this] {
+        const QModelIndex current = carousel_view->currentIndex();
+        if (!current.isValid()) {
+            return;
+        }
+        const QString path =
+            current.sibling(current.row(), 0).data(GameListItemPath::FullPathRole).toString();
+        if (!path.isEmpty()) {
+            emit OpenPerGameGeneralRequested(path.toStdString());
+        }
+    });
+}
+
+void GameList::SelectFirstCarouselGame() {
+    if (carousel_view->currentIndex().isValid()) {
+        return;
+    }
+    for (int row = 0; row < item_model->rowCount(); ++row) {
+        const QModelIndex index = item_model->index(row, 0);
+        if (!carousel_view->isRowHidden(row) &&
+            index.data(GameListItem::TypeRole).value<GameListItemType>() ==
+                GameListItemType::Game) {
+            carousel_view->setCurrentIndex(index);
+            return;
+        }
+    }
 }
 
 QString GameList::GetLastFilterResultItem() const {
@@ -142,7 +182,11 @@ void GameList::SetFilterFocus() {
 }
 
 void GameList::SetFilterVisible(bool visibility) {
-    search_field->setVisible(visibility);
+    search_field->SetSearchVisible(visibility);
+}
+
+void GameList::SetLibraryMenus(QMenu* view_mode, QMenu* icon_size) {
+    search_field->SetMenus(view_mode, icon_size);
 }
 
 bool GameList::IsEmpty() const {
@@ -231,7 +275,17 @@ void GameList::ResetViewMode() {
     // MainWindow switches the view right after starting the first populate; keep it disabled
     // until that finishes, as OnPopulate does for every other populate.
     m_currentView->setEnabled(!m_populating);
-    layout->insertWidget(0, m_currentView);
+    // Under the library bar.
+    layout->insertWidget(1, m_currentView, 1);
+
+    // The carousel shows the selected game's panel under it.
+    const bool carousel = mode == Settings::GameListMode::CarouselView;
+    layout->removeWidget(hero);
+    if (carousel) {
+        layout->insertWidget(2, hero);
+        SelectFirstCarouselGame();
+    }
+    hero->setVisible(carousel);
 
     auto view = m_currentView->viewport();
     view->installEventFilter(this);
@@ -274,6 +328,10 @@ void GameList::OnFilterCloseClicked() {
 
 void GameList::OnPopulatingCompleted(const QStringList& watch_list) {
     emit ShowList(!item_model->IsEmpty());
+
+    if (game_list_mode == Settings::GameListMode::CarouselView) {
+        SelectFirstCarouselGame();
+    }
 
     // favorites row
     if (m_isTreeMode) {
@@ -473,10 +531,6 @@ void GameList::PopupContextMenu(const QPoint& menu_location) {
     context_menu.exec(m_currentView->viewport()->mapToGlobal(menu_location));
 }
 
-void GameList::SetReportableProgramId(u64 program_id) {
-    reportable_program_id = program_id;
-}
-
 void GameList::AddGamePopup(QMenu& context_menu, u64 program_id, const std::string& path) {
     // TODO(crueter): Refactor this and make it less bad
     QAction* favorite = context_menu.addAction(tr("Favorite"));
@@ -536,7 +590,7 @@ void GameList::AddGamePopup(QMenu& context_menu, u64 program_id, const std::stri
     QAction* add_to_nx = nullptr;
     QAction* remove_from_nx = nullptr;
     QAction* edit_nx_metadata = nullptr;
-#ifdef LICHII_NX_TOOLS
+#ifdef GIURAY_NX_TOOLS
     if (NxTools::CanConvert(path)) {
         convert_nx = context_menu.addAction(tr("Convert to NX..."));
         convert_nx->setEnabled(!nx_tool_running);
@@ -563,11 +617,6 @@ void GameList::AddGamePopup(QMenu& context_menu, u64 program_id, const std::stri
         edit_nup->setEnabled(!nup_conversion_running);
     }
     QAction* properties = context_menu.addAction(tr("Configure Game"));
-    if (program_id != 0 && program_id == reportable_program_id) {
-        auto* report = context_menu.addAction(tr("Submit compatibility report…"));
-        connect(report, &QAction::triggered, this,
-                [this, program_id] { emit ReportCompatibilityRequested(program_id); });
-    }
 
     favorite->setVisible(program_id != 0);
     favorite->setCheckable(true);

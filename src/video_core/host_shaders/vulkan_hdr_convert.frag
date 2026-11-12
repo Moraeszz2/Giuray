@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: Copyright 2026 Eden Emulator Project
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-// Converts a presented layer between SDR, HDR10 and scRGB. Based on Eglantine #557's
+// Converts a presented layer between SDR, HDR10 and scRGB. Based on upstream #557's
 // hdr_tonemap.frag (PQ to SDR) and hdr_pq_encode.frag (SDR to PQ) by 101Leafy, with the
 // luminances the game was told instead of fixed ones, and scRGB on either side.
 

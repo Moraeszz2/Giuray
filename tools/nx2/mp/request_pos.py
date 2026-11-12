@@ -10,7 +10,7 @@ import sys
 import time
 
 PY = "B:/msys64/ucrt64/bin/python.exe"
-TOOL = "B:/projetos/Lichii/tools/nx2/debug_mcp.py"
+TOOL = "B:/projetos/Giuray/tools/nx2/debug_mcp.py"
 LINK_CHAIN = (0x4E98438, (0xB8, 0x40, 0x0))
 
 
@@ -41,9 +41,9 @@ delta = [float(v) for v in sys.argv[3:6]]
 now = f3(actor + 0x31C)
 pending = f3(actor + 0x358)
 print("actor", hex(actor), "position", [round(v, 3) for v in now], "pending", pending)
-dbg("screenshot", {}, out="C:/Users/gui62/lichii-perf/mp/req_before.png")
+dbg("screenshot", {}, out="C:/Users/gui62/giuray-work/mp/req_before.png")
 target = [now[i] + delta[i] for i in range(3)]
 dbg("write_memory", {"address": hex(actor + 0x358), "f32": target})
 time.sleep(0.5)
 print("pending after", f3(actor + 0x358), "position after", [round(v, 3) for v in f3(actor + 0x31C)])
-dbg("screenshot", {}, out="C:/Users/gui62/lichii-perf/mp/req_after.png")
+dbg("screenshot", {}, out="C:/Users/gui62/giuray-work/mp/req_after.png")

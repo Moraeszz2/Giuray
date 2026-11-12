@@ -1,0 +1,46 @@
+<!--
+SPDX-FileCopyrightText: 2026 Giuray
+SPDX-License-Identifier: GPL-3.0-or-later
+-->
+
+<RCC>
+    <qresource prefix="icons/giuray">
+        <file alias="index.theme">icons/index.theme</file>
+        <file alias="16x16/list-add.png">icons/16x16/list-add.png</file>
+        <file alias="16x16/search.png">icons/16x16/search.png</file>
+        <file alias="16x16/view-grid.png">icons/16x16/view-grid.png</file>
+        <file alias="16x16/view-list.png">icons/16x16/view-list.png</file>
+        <file alias="16x16/view-refresh.png">icons/16x16/view-refresh.png</file>
+        <file alias="48x48/bad_folder.png">icons/48x48/bad_folder.png</file>
+        <file alias="48x48/chip.png">icons/48x48/chip.png</file>
+        <file alias="48x48/folder.png">icons/48x48/folder.png</file>
+        <file alias="48x48/list-add.png">icons/48x48/list-add.png</file>
+        <file alias="48x48/sd_card.png">icons/48x48/sd_card.png</file>
+        <file alias="48x48/star.png">icons/48x48/star.png</file>
+        <file alias="256x256/plus_folder.png">icons/256x256/plus_folder.png</file>
+    </qresource>
+    <qresource prefix="giuray_rc">
+        <file alias="arrow-down.png">rc/arrow-down.png</file>
+        <file alias="arrow-down@2x.png">rc/arrow-down@2x.png</file>
+        <file alias="arrow-down-disabled.png">rc/arrow-down-disabled.png</file>
+        <file alias="arrow-down-disabled@2x.png">rc/arrow-down-disabled@2x.png</file>
+        <file alias="arrow-left.png">rc/arrow-left.png</file>
+        <file alias="arrow-left@2x.png">rc/arrow-left@2x.png</file>
+        <file alias="arrow-right.png">rc/arrow-right.png</file>
+        <file alias="arrow-right@2x.png">rc/arrow-right@2x.png</file>
+        <file alias="arrow-up.png">rc/arrow-up.png</file>
+        <file alias="arrow-up@2x.png">rc/arrow-up@2x.png</file>
+        <file alias="check.png">rc/check.png</file>
+        <file alias="check@2x.png">rc/check@2x.png</file>
+        <file alias="indeterminate.png">rc/indeterminate.png</file>
+        <file alias="indeterminate@2x.png">rc/indeterminate@2x.png</file>
+    </qresource>
+    <qresource prefix="fonts">
+        <file alias="Inter-Regular.ttf">../../fonts/inter/Inter-Regular.ttf</file>
+        <file alias="Inter-Medium.ttf">../../fonts/inter/Inter-Medium.ttf</file>
+        <file alias="Inter-SemiBold.ttf">../../fonts/inter/Inter-SemiBold.ttf</file>
+    </qresource>
+    <qresource prefix="giuray">
+        <file>style.qss</file>
+    </qresource>
+</RCC>

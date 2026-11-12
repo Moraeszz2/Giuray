@@ -3,13 +3,13 @@
 
 <#
 .SYNOPSIS
-Measures a running Lichii session through its debug server: frame times (average fps, 1% and
+Measures a running Giuray session through its debug server: frame times (average fps, 1% and
 0.1% lows, percentiles), CPU use per host thread, host GPU use and VRAM, process memory, the
 emulator's own per-600-present and pipeline summaries, and optionally where the busy threads
 spend their time (the in-process sampler).
 
 .DESCRIPTION
-Launch the emulator with launch.ps1 (it sets EDEN_NX2_DEBUG_SERVER), go to the benchmark spot,
+Launch the emulator with launch.ps1 (it sets GIURAY_NX2_DEBUG_SERVER), go to the benchmark spot,
 then run this script. It never starts, stops or pauses the emulator, and sends no input unless
 -Route is given. Results go to <OutDir>\<label>-<time>\ (summary.md, result.json, frames.csv,
 gpu.csv, samples-*.txt).
@@ -27,9 +27,9 @@ param(
     [string] $Server = '127.0.0.1:6545',
     [switch] $Sample,
     [double] $SampleSeconds = 10,
-    [string] $OutDir = (Join-Path $env:USERPROFILE 'lichii-perf\results'),
+    [string] $OutDir = (Join-Path $env:USERPROFILE 'giuray-work\results'),
     [string] $Route = '',
-    [string[]] $ProcessName = @('lichii', 'eden-cli'),
+    [string[]] $ProcessName = @('giuray', 'giuray-cli'),
     # Game settings the run needs, e.g. @{ reactive_flushing = $false }: checked against what the
     # emulator logged when the game booted. -CheckOnly stops after the checks.
     [hashtable] $Expect = @{},
@@ -47,11 +47,11 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-if (-not ('LichiiPerf.FramePoller' -as [type])) {
-    Add-Type -Path (Join-Path $PSScriptRoot 'LichiiPerf.cs')
+if (-not ('GiurayPerf.FramePoller' -as [type])) {
+    Add-Type -Path (Join-Path $PSScriptRoot 'GiurayPerf.cs')
 }
 
-function Invoke-Nx2([LichiiPerf.DebugClient] $client, [string] $method, $params = @{}) {
+function Invoke-Nx2([GiurayPerf.DebugClient] $client, [string] $method, $params = @{}) {
     $line = $client.Call($method, ($params | ConvertTo-Json -Compress -Depth 8))
     $reply = $line | ConvertFrom-Json -Depth 32
     if ($null -ne $reply.error) { throw "debug server: $method failed: $($reply.error)" }
@@ -92,7 +92,7 @@ function Get-ViewSimilarity([string] $a, [string] $b) {
 }
 
 $hostName, $port = $Server.Split(':')
-$client = [LichiiPerf.DebugClient]::new($hostName, [int]$port, 3000)
+$client = [GiurayPerf.DebugClient]::new($hostName, [int]$port, 3000)
 $smiProcess = $null
 try {
     $status = Invoke-Nx2 $client 'status' @{ fps_window_ms = 1000 }
@@ -106,9 +106,9 @@ try {
     # Settings changed in the UI between runs, as logged when the game booted (the newest line).
     # Read from the log file: the debug server's ring starts after the boot lines when the game
     # is opened right away.
-    $logFiles = @(Join-Path $env:APPDATA 'eden\log\eden_log.txt')
+    $logFiles = @(Join-Path $env:APPDATA 'eden\log\giuray_log.txt')
     if ($process.Path) {
-        $logFiles = @(Join-Path (Split-Path $process.Path) 'user\log\eden_log.txt') + $logFiles
+        $logFiles = @(Join-Path (Split-Path $process.Path) 'user\log\giuray_log.txt') + $logFiles
     }
     $logFile = $logFiles | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
     $bootLines = if ($logFile) { Read-SharedLines $logFile } else { (Invoke-Nx2 $client 'log_tail' @{ limit = 5000 }).lines }
@@ -171,9 +171,9 @@ try {
         $steps = Get-Content -Raw $Route | ConvertFrom-Json -Depth 8
         $routeJob = Start-ThreadJob -ArgumentList $Server, $steps, $PSScriptRoot -ScriptBlock {
             param($server, $steps, $root)
-            if (-not ('LichiiPerf.FramePoller' -as [type])) { Add-Type -Path (Join-Path $root 'LichiiPerf.cs') }
+            if (-not ('GiurayPerf.FramePoller' -as [type])) { Add-Type -Path (Join-Path $root 'GiurayPerf.cs') }
             $h, $p = $server.Split(':')
-            $c = [LichiiPerf.DebugClient]::new($h, [int]$p, 3000)
+            $c = [GiurayPerf.DebugClient]::new($h, [int]$p, 3000)
             try { $c.Call('input_sequence', (@{ steps = $steps; timeout_s = 30 } | ConvertTo-Json -Compress -Depth 8)) }
             finally { $c.Dispose() }
         }
@@ -187,7 +187,7 @@ try {
         Write-Host "No screenshot: $($_.Exception.Message)"
     }
 
-    $threadsBefore = [LichiiPerf.Threads]::Snapshot($process.Id)
+    $threadsBefore = [GiurayPerf.Threads]::Snapshot($process.Id)
     $cpuBefore = $process.TotalProcessorTime.TotalSeconds
     $clock = [Diagnostics.Stopwatch]::StartNew()
     $abBlocks = @()
@@ -201,7 +201,7 @@ try {
                     $on = @($false, $true, $true, $false)[$i % 4]
                     Invoke-Nx2 $client 'experiment' @{ name = $AB; value = $on } | Out-Null
                     Start-Sleep -Seconds $BlockSettle
-                    $block = [LichiiPerf.FramePoller]::Measure($client, $BlockSeconds, $PollMs)
+                    $block = [GiurayPerf.FramePoller]::Measure($client, $BlockSeconds, $PollMs)
                     $all.AddRange($block.FrameMs)
                     $abBlocks += [pscustomobject]@{ block = $i + 1; on = $on; fps = $block.AverageFps
                                                     one_percent_low_fps = $block.OnePercentLowFps
@@ -211,10 +211,10 @@ try {
             } finally {
                 Invoke-Nx2 $client 'experiment' @{ name = $AB; value = $original } | Out-Null
             }
-            $frames = [LichiiPerf.FramePoller]::Summarize($all, $PollMs)
+            $frames = [GiurayPerf.FramePoller]::Summarize($all, $PollMs)
         } else {
             Write-Host "Measuring $Seconds s (stay at the spot)..."
-            $frames = [LichiiPerf.FramePoller]::Measure($client, $Seconds, $PollMs)
+            $frames = [GiurayPerf.FramePoller]::Measure($client, $Seconds, $PollMs)
         }
     } catch {
         $reason = if ($_.Exception.InnerException) { $_.Exception.InnerException.Message } else { $_.Exception.Message }
@@ -225,11 +225,11 @@ try {
     $elapsed = $clock.Elapsed.TotalSeconds
     $process.Refresh()
     $cpuAfter = $process.TotalProcessorTime.TotalSeconds
-    $threadsAfter = [LichiiPerf.Threads]::Snapshot($process.Id)
+    $threadsAfter = [GiurayPerf.Threads]::Snapshot($process.Id)
     if ($smiProcess) { Stop-Process -Id $smiProcess.Id -Force -ErrorAction SilentlyContinue; $smiProcess = $null }
     if ($Route) { Receive-Job -Wait -AutoRemoveJob $routeJob | Out-Null }
 
-    $busy = [LichiiPerf.Threads]::Busy($threadsBefore, $threadsAfter, $elapsed)
+    $busy = [GiurayPerf.Threads]::Busy($threadsBefore, $threadsAfter, $elapsed)
     $logical = [Environment]::ProcessorCount
     $processCpu = ($cpuAfter - $cpuBefore) / $elapsed / $logical * 100
 
@@ -273,7 +273,7 @@ try {
             param([bool] $on)
             $ms = [System.Collections.Generic.List[double]]::new()
             $abBlocks | Where-Object { $_.on -eq $on } | ForEach-Object { $ms.AddRange([double[]]$_.frame_ms) }
-            [LichiiPerf.FramePoller]::Summarize($ms, $PollMs)
+            [GiurayPerf.FramePoller]::Summarize($ms, $PollMs)
         }
         $offStats = & $arm $false
         $onStats = & $arm $true

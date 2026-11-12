@@ -1,6 +1,6 @@
 # Star Fox community crash investigation
 
-The reports use Lichii `2b139e9889`. The service fix is based on `nx2`
+The reports use Giuray `2b139e9889`. The service fix is based on `nx2`
 `546cb67825b886898c974f2773e9426b62e6fdcc`. It fixes an incorrect IPC
 reply demonstrated in the RTX 4060 Ti panic. It is not a verified fix for
 the separate RTX 5090 Vulkan device loss.
@@ -43,10 +43,10 @@ looking up the handle. The log does not record the actual malformed size.
 ## Upstream port and SDK adaptation
 
 The allocation, permissions, lazy reuse and size/offset reply come from
-[upstream commit 9750ad666f809b158a907e81ce24d433e1e5524f](https://github.com/Djihads80/Eglantine/commit/9750ad666f809b158a907e81ce24d433e1e5524f).
+upstream commit 9750ad666f809b158a907e81ce24d433e1e5524f.
 The identical implementation appears in
-[535b6769709eb22333af26269f1b16f37adce4db](https://github.com/Djihads80/Eglantine/commit/535b6769709eb22333af26269f1b16f37adce4db),
-[PR #1](https://github.com/Djihads80/Eglantine/pull/1). This is experimental
+535b6769709eb22333af26269f1b16f37adce4db,
+PR #1. This is experimental
 upstream branch work, not a fix present in upstream `nx2`. The unrelated
 work-memory query in that patch is not included.
 
@@ -75,7 +75,7 @@ checks size and permission rejection, and verifies repeated requests reuse
 the object. Copied handles remain valid after the service is destroyed.
 Before the fix, both routes left the configuration as the TLS sentinel.
 
-After review, package with `EDEN_NX2_IPC_TRACE=1` and filter `*:Info`.
+After review, package with `GIURAY_NX2_IPC_TRACE=1` and filter `*:Info`.
 Have the 4060 Ti reporter repeat the same launch and progress beyond the
 previous panic. Save the entire new log. Expect
 `GameShare guest HID shared memory: size=0x9b000, offset=0, no guests connected`
@@ -98,7 +98,7 @@ not evidence that those accesses caused the later Vulkan device loss.
 
 The release already includes the ULDC and Star Fox visual fixes. Current
 nx2 additionally includes selected GPU fixes from upstream #475, #329 and
-#472 via Lichii #62, but none has been verified against this failure.
+#472 via Giuray #62, but none has been verified against this failure.
 Retest current nx2 separately with the same game update and settings.
 Record visible behavior, reproduction steps, and the full log. If supported
 by the package, collect Nsight Aftermath output in a separate diagnostic

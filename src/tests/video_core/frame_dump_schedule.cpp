@@ -71,7 +71,7 @@ TEST_CASE("Frame dump schedule records buffers independently of sampled textures
     REQUIRE(schedule.Tick(0.0) == Step::Finish);
 }
 
-TEST_CASE("Frame dump schedule follows EDEN_NX2_FRAME_DUMP_AT", "[frame_dump_schedule]") {
+TEST_CASE("Frame dump schedule follows GIURAY_NX2_FRAME_DUMP_AT", "[frame_dump_schedule]") {
     FrameDumpSchedule by_frame;
     by_frame.Configure("3f", {}, true);
     REQUIRE(by_frame.Tick(1000.0) == Step::None);

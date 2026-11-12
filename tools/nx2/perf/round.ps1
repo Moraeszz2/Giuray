@@ -18,10 +18,10 @@ pwsh -File tools/nx2/perf/round.ps1 -Label msvc-2
 param(
     [string] $Label = '',
     [switch] $List,
-    [string] $Plan = (Join-Path $env:USERPROFILE 'lichii-perf\plan.json'),
+    [string] $Plan = (Join-Path $env:USERPROFILE 'giuray-work\plan.json'),
     [double] $Seconds = 60,
     [double] $Settle = 20,
-    [string] $OutDir = (Join-Path $env:USERPROFILE 'lichii-perf\results')
+    [string] $OutDir = (Join-Path $env:USERPROFILE 'giuray-work\results')
 )
 
 $ErrorActionPreference = 'Stop'
@@ -68,9 +68,9 @@ if ($run.require_closed) {
 Write-Host ("Run {0}: {1} ({2}), variant {3}{4}" -f $run.label, $run.package, $exe, $run.variant,
             $(if ($run.sample) { ', with thread samples' } else { '' })) -ForegroundColor Cyan
 if ($run.before) {
-    # Lichii's window covers this terminal once it starts: read the note first.
+    # Giuray's window covers this terminal once it starts: read the note first.
     Write-Host "Before opening the game: $($run.before)" -ForegroundColor Yellow
-    Read-Host 'Press Enter to start Lichii'
+    Read-Host 'Press Enter to start Giuray'
 }
 
 # Game settings changed in the UI: every run expects the plan's defaults unless it says otherwise.
@@ -95,26 +95,26 @@ $check = {
         & $bench -Label $run.label -OutDir $OutDir -Expect $expect -ReferenceView $view -AB $ab -CheckOnly
     } catch {
         Write-Host "Run $($run.label) cannot be measured: $($_.Exception.Message)" -ForegroundColor Red
-        Write-Host 'Close Lichii and run round.ps1 again to repeat it.' -ForegroundColor Red
+        Write-Host 'Close Giuray and run round.ps1 again to repeat it.' -ForegroundColor Red
         exit 1
     }
 }
 
-if (-not ('LichiiPerf.DebugClient' -as [type])) {
-    Add-Type -Path (Join-Path $PSScriptRoot 'LichiiPerf.cs')
+if (-not ('GiurayPerf.DebugClient' -as [type])) {
+    Add-Type -Path (Join-Path $PSScriptRoot 'GiurayPerf.cs')
 }
-# A base run can reuse the Lichii a refused run left open (launch.ps1 started it: the debug
+# A base run can reuse the Giuray a refused run left open (launch.ps1 started it: the debug
 # server answers), so a wrong spot costs a walk, not a restart.
-$running = Get-Process -Name lichii, eden-cli -ErrorAction SilentlyContinue |
+$running = Get-Process -Name giuray, giuray-cli -ErrorAction SilentlyContinue |
     Where-Object { $_.Path -eq (Resolve-Path $exe).Path }
 $reuse = $false
 $started = Join-Path $OutDir 'running.txt'
 $startedAs = if (Test-Path $started) { (Get-Content $started -Raw).Trim() } else { '' }
 if ($running -and $run.variant -eq 'base' -and $startedAs -eq "$($running[0].Id) base") {
     try {
-        [LichiiPerf.DebugClient]::new('127.0.0.1', 6545, 1000).Dispose()
+        [GiurayPerf.DebugClient]::new('127.0.0.1', 6545, 1000).Dispose()
         $reuse = $true
-        Write-Host 'Using the Lichii that is already open.' -ForegroundColor Cyan
+        Write-Host 'Using the Giuray that is already open.' -ForegroundColor Cyan
     } catch {}
 }
 if (-not $reuse) {
@@ -125,11 +125,11 @@ if (-not $reuse) {
 Write-Host 'Waiting for the game to start...'
 while ($true) {
     try {
-        [LichiiPerf.DebugClient]::new('127.0.0.1', 6545, 1000).Dispose()
+        [GiurayPerf.DebugClient]::new('127.0.0.1', 6545, 1000).Dispose()
         break
     } catch {
-        if (-not (Get-Process -Name lichii, eden-cli -ErrorAction SilentlyContinue)) {
-            Write-Host 'Lichii closed before the game started.' -ForegroundColor Red
+        if (-not (Get-Process -Name giuray, giuray-cli -ErrorAction SilentlyContinue)) {
+            Write-Host 'Giuray closed before the game started.' -ForegroundColor Red
             exit 1
         }
         Start-Sleep -Seconds 2
@@ -146,7 +146,7 @@ if ($run.free_play) {
     New-Item -ItemType Directory -Force -Path $dir | Out-Null
     if ($run.sample_new_area) {
         Read-Host 'Press Enter right before Link walks into the new area'
-        $client = [LichiiPerf.DebugClient]::new('127.0.0.1', 6545, 3000)
+        $client = [GiurayPerf.DebugClient]::new('127.0.0.1', 6545, 3000)
         try {
             Write-Host 'Sampling the GPU threads for 30 s: walk in and look around...'
             $params = @{ threads = 'GPU,GPUBack,VkPipelineBuilder'; seconds = 30; max_chars = 600000 } | ConvertTo-Json -Compress
@@ -158,23 +158,23 @@ if ($run.free_play) {
         Write-Host 'Sampled.' -ForegroundColor Green
     }
     $playStart = Get-Date
-    Read-Host ("Play for about {0} minutes, then press Enter here (keep Lichii open)" -f $run.free_play)
+    Read-Host ("Play for about {0} minutes, then press Enter here (keep Giuray open)" -f $run.free_play)
     # An Enter pressed right away would end the run before it measured anything.
     while (((Get-Date) - $playStart).TotalMinutes -lt 0.8 * $run.free_play) {
         Read-Host ("Only {0:N0} of {1} minutes played: keep playing, then press Enter again" -f
                    ((Get-Date) - $playStart).TotalMinutes, $run.free_play)
     }
-    $log = Join-Path $env:APPDATA 'eden\log\eden_log.txt'
+    $log = Join-Path $env:APPDATA 'eden\log\giuray_log.txt'
     $stream = [IO.FileStream]::new($log, 'Open', 'Read', 'ReadWrite, Delete')
-    $target = [IO.File]::Create((Join-Path $dir 'eden_log.txt'))
+    $target = [IO.File]::Create((Join-Path $dir 'giuray_log.txt'))
     try { $stream.CopyTo($target) } finally { $target.Dispose(); $stream.Dispose() }
-    & (Join-Path $PSScriptRoot 'log-summary.ps1') -Log (Join-Path $dir 'eden_log.txt') |
+    & (Join-Path $PSScriptRoot 'log-summary.ps1') -Log (Join-Path $dir 'giuray_log.txt') |
         Set-Content (Join-Path $dir 'summary.md')
     Get-Content (Join-Path $dir 'summary.md')
     if ($run.after) {
         Write-Host "After this run: $($run.after)" -ForegroundColor Yellow
     }
-    Write-Host 'Done: close Lichii now.' -ForegroundColor Green
+    Write-Host 'Done: close Giuray now.' -ForegroundColor Green
     exit 0
 }
 
@@ -196,10 +196,10 @@ try {
     & $bench @benchArgs
 } catch {
     Write-Host "Run $($run.label) failed: $($_.Exception.Message)" -ForegroundColor Red
-    Write-Host 'Close Lichii and run round.ps1 again to repeat it.' -ForegroundColor Red
+    Write-Host 'Close Giuray and run round.ps1 again to repeat it.' -ForegroundColor Red
     exit 1
 }
 if ($run.after) {
     Write-Host "After this run: $($run.after)" -ForegroundColor Yellow
 }
-Write-Host 'Done: close Lichii now.' -ForegroundColor Green
+Write-Host 'Done: close Giuray now.' -ForegroundColor Green

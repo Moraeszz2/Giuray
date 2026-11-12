@@ -23,6 +23,7 @@
 #include "qt_common/game_list/model.h"
 #include "qt_common/util/game.h"
 
+class QMenu;
 class QVariantAnimation;
 
 class GameCard;
@@ -38,6 +39,7 @@ enum class AmLaunchType;
 enum class StartGameType;
 
 class GameCarousel;
+class GameHero;
 
 class QAbstractItemView;
 namespace Core {
@@ -73,11 +75,12 @@ public:
     void ClearFilter();
     void SetFilterFocus();
     void SetFilterVisible(bool visibility);
+    /// The library bar's view and icon size menus (the main window's).
+    void SetLibraryMenus(QMenu* view_mode, QMenu* icon_size);
     bool IsEmpty() const;
 
     void PopulateAsync(QVector<UISettings::GameDir>& game_dirs);
     void SetScanEnabled(bool enabled);
-    void SetReportableProgramId(u64 program_id);
 
     void SaveInterfaceLayout();
     void LoadInterfaceLayout();
@@ -98,7 +101,6 @@ public slots:
     void OnPopulate();
 
 signals:
-    void ReportCompatibilityRequested(u64 program_id);
     void BootGame(const QString& game_path, StartGameType type);
     void GameChosen(const QString& game_path, const u64 title_id = 0);
     void OpenFolderRequested(u64 program_id, GameListOpenTarget target,
@@ -138,6 +140,7 @@ private slots:
 
 private:
     void SetupViews();
+    void SelectFirstCarouselGame();
     void SetupScrollAnimation();
     bool eventFilter(QObject* obj, QEvent* event) override;
     void changeEvent(QEvent*) override;
@@ -165,6 +168,7 @@ private:
     GameTree* tree_view = nullptr;
     GameGrid* grid_view = nullptr;
     GameCarousel* carousel_view = nullptr;
+    GameHero* hero = nullptr;
     GameListModel* item_model = nullptr;
     Settings::GameListMode game_list_mode;
 
@@ -182,7 +186,6 @@ private:
     bool m_populating = false;
     bool nup_conversion_running{};
     bool nx_tool_running{};
-    u64 reportable_program_id{};
     QAbstractItemView* m_currentView = nullptr;
 };
 

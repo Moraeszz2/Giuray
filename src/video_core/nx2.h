@@ -164,7 +164,7 @@ inline bool Nx2InSemaphoreFirstPage(u64 address) {
 /// progress, so its waits end before the work they wait for has run. Mirrored releases into
 /// those words go to this table instead, and only GPU acquires read it. Words only the mirror
 /// writes keep getting guest memory writes. Keyed by device word address. Ported from
-/// jpasqui/Eglantine f8941169650 and ca73069b2e.
+/// upstream f8941169650 and ca73069b2e.
 class Nx2MirrorShadow {
 public:
     static Nx2MirrorShadow& Get() {

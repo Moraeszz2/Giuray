@@ -239,10 +239,10 @@ void QueryCacheBase<Traits>::CounterReport(GPUVAddr addr, QueryType counter_type
     const bool mirrored = True(flags & QueryPropertiesFlags::Nx2Mirror);
     const auto requested_type = counter_type;
     static const GPUVAddr watch = [] {
-        const char* value = std::getenv("EDEN_NX2_SEM_WATCH");
+        const char* value = std::getenv("GIURAY_NX2_SEM_WATCH");
         return value ? GPUVAddr{std::strtoull(value, nullptr, 16)} : GPUVAddr{};
     }();
-    if (static const bool trace = std::getenv("EDEN_NX2_QUERY_TRACE") != nullptr;
+    if (static const bool trace = std::getenv("GIURAY_NX2_QUERY_TRACE") != nullptr;
         trace || (watch != 0 && (addr & ~GPUVAddr{0xf}) == watch)) {
         LOG_INFO(HW_GPU, "nx2 report addr={:#x} type={} flags={:#x} payload={:#x} as={} device={:#x}", addr,
                  static_cast<u32>(counter_type), static_cast<u32>(flags), payload, gpu_memory->GetID(),

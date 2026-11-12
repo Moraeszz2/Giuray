@@ -1,4 +1,4 @@
-"""Keeps one GDB remote-protocol connection to Lichii's GDB stub (127.0.0.1:6543) and serves
+"""Keeps one GDB remote-protocol connection to Giuray's GDB stub (127.0.0.1:6543) and serves
 commands on 127.0.0.1:6560, one JSON object per line (see rsp.py). Run it once per session."""
 import json
 import queue
@@ -17,7 +17,7 @@ def checksum(data: bytes) -> bytes:
 
 class Stub:
     def __init__(self):
-        # Wait (up to 15 min) for Lichii to boot a game and open the stub.
+        # Wait (up to 15 min) for Giuray to boot a game and open the stub.
         for _ in range(900):
             try:
                 self.sock = socket.create_connection(STUB)

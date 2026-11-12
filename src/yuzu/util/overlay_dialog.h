@@ -97,6 +97,9 @@ private:
     std::unique_ptr<Ui::OverlayDialog> ui;
 
     bool use_rich_text;
+    /// Only a message, no title or buttons (e.g. "Closing software..."): a small card with a busy
+    /// bar instead of the large panel.
+    bool compact = false;
 
     std::unique_ptr<InputInterpreter> input_interpreter;
     std::jthread input_thread;

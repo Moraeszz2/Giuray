@@ -812,9 +812,9 @@ void ASTCDecoderPass::AssembleInto(const VideoCommon::ImageInfo& info, u32 skip,
                        vk::PIPELINE_STAGE_GRAPHICS_COMPUTE, 0, image_barrier);
     });
     // Each decode ends with a submit to the host GPU. Measured here
-    // (count and time per 5 s); EDEN_NX2_ASTC_FLUSH=0 waits for the host GPU to go idle instead.
+    // (count and time per 5 s); GIURAY_NX2_ASTC_FLUSH=0 waits for the host GPU to go idle instead.
     static const bool flush_only = [] {
-        const char* value = std::getenv("EDEN_NX2_ASTC_FLUSH");
+        const char* value = std::getenv("GIURAY_NX2_ASTC_FLUSH");
         return value == nullptr || value[0] != '0';
     }();
     if (!target.wait) {

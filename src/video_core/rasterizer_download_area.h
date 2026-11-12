@@ -112,7 +112,7 @@ private:
     static inline DownloadLandingState state;
 };
 
-/// EDEN_NX2_READ_CHECK: the latest writes from the GPU's side that ReadDownloadsMayCover
+/// GIURAY_NX2_READ_CHECK: the latest writes from the GPU's side that ReadDownloadsMayCover
 /// let through, to name the writer when the check finds newer bytes where an earlier read's
 /// download landed.
 class ReadCheckWrites {

@@ -40,8 +40,8 @@ Restart the emulator after setting environment variables. In PowerShell, launch
 the diagnostic executable from the same shell:
 
 ```powershell
-$env:EDEN_DKB_FRAME_TRACE = "1"
-Remove-Item Env:EDEN_DKB_INDIRECT_READBACK -ErrorAction SilentlyContinue
+$env:GIURAY_DKB_FRAME_TRACE = "1"
+Remove-Item Env:GIURAY_DKB_INDIRECT_READBACK -ErrorAction SilentlyContinue
 & .\eden.exe
 ```
 
@@ -60,7 +60,7 @@ between these two positions.
 For a second run focused on the black image, also enable:
 
 ```powershell
-$env:EDEN_DKB_INDIRECT_READBACK = "1"
+$env:GIURAY_DKB_INDIRECT_READBACK = "1"
 & .\eden.exe
 ```
 
@@ -72,7 +72,7 @@ the readback is diagnostic, not a rendering fix.
 Extract relevant lines while keeping the original log:
 
 ```powershell
-Select-String -Path .\eden_log.txt -Pattern 'DKB|Rejected program|shader rejected|Draw skipped|swap interval|Native indirect reset'
+Select-String -Path .\giuray_log.txt -Pattern 'DKB|Rejected program|shader rejected|Draw skipped|swap interval|Native indirect reset'
 ```
 
 ## Interpret the evidence
@@ -115,7 +115,7 @@ dynamic frame-rate logic made the right decision.
 
 If shader, draw, count and predicate observations remain normal while the screen
 is black, this trace has not ruled out a resource initialization or shader-output
-bug. The existing `EDEN_NATIVE_FRAME_CAPTURE` and `EDEN_NATIVE_DRAW_CAPTURE`
+bug. The existing `GIURAY_NATIVE_FRAME_CAPTURE` and `GIURAY_NATIVE_DRAW_CAPTURE`
 switches capture a bounded set of early resources, but produce larger, more
 intrusive captures and are not required for the first run.
 

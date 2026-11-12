@@ -3,7 +3,7 @@ import sys
 
 import capstone
 
-sys.path.insert(0, "C:/Users/gui62/lichii-perf/mp")
+sys.path.insert(0, "C:/Users/gui62/giuray-work/mp")
 from rsp import call  # noqa: E402
 
 pc = int(sys.argv[1], 16)

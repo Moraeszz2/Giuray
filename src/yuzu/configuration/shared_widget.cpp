@@ -78,6 +78,7 @@ QPushButton* Widget::CreateRestoreGlobalButton(bool using_global, QWidget* paren
     QPushButton* restore_button = new QPushButton(*icon, QString(), parent);
     restore_button->setObjectName(QStringLiteral("RestoreButton%1").arg(restore_button_count));
     restore_button->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Preferred);
+    restore_button->setFixedSize(32, 32);
 
     // Workaround for dark theme causing min-width to be much larger than 0
     restore_button->setStyleSheet(
@@ -96,6 +97,9 @@ QPushButton* Widget::CreateRestoreGlobalButton(bool using_global, QWidget* paren
 QLabel* Widget::CreateLabel(const QString& text) {
     QLabel* qt_label = new QLabel(text, this->parent);
     qt_label->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
+    // A long label wraps instead of pushing its row's control right, so every row's control
+    // starts at the same column.
+    qt_label->setWordWrap(true);
     return qt_label;
 }
 
@@ -135,6 +139,9 @@ QWidget* Widget::CreateCombobox(std::function<std::string()>& serializer,
 
     combobox = new QComboBox(this);
     combobox->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
+    // Sized by the row, not by its longest entry, so combo boxes line up with each other.
+    combobox->setSizeAdjustPolicy(QComboBox::AdjustToMinimumContentsLengthWithIcon);
+    combobox->setMinimumContentsLength(8);
 
     const ComboboxTranslations* enumeration{nullptr};
     if (combobox_enumerations.contains(type)) {

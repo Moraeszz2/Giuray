@@ -4,7 +4,7 @@ import subprocess
 import sys
 
 PY = "B:/msys64/ucrt64/bin/python.exe"
-TOOL = "B:/projetos/Lichii/tools/nx2/debug_mcp.py"
+TOOL = "B:/projetos/Giuray/tools/nx2/debug_mcp.py"
 
 
 def call(method, params=None, out=None):
@@ -38,4 +38,4 @@ for stick in ([0, -1], [0, 1], [0, -1], [1, 0]):
     filt(mode="changed", min_change=0.5, show=0)
     call("input", {"frames": 25})
     r = filt(mode="unchanged", tolerance=0.0001, show=1000)
-json.dump(r, open("C:/Users/gui62/lichii-perf/mp/found.json", "w"))
+json.dump(r, open("C:/Users/gui62/giuray-work/mp/found.json", "w"))

@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Shader cache and stutter metrics from Lichii logs.
+"""Shader cache and stutter metrics from Giuray logs.
 
   cache_metrics.py parse <log> [--session N] [--start-s S] [--end-s S]
   cache_metrics.py compare --a <log|json>... --b <log|json>... [--label-a A] [--label-b B]
 
-parse prints one JSON object per log. The numbers come from the EDEN_NX2_STUTTER_TRACE=1 lines
+parse prints one JSON object per log. The numbers come from the GIURAY_NX2_STUTTER_TRACE=1 lines
 (Nx2Boot, Nx2Stutter, Nx2StutterSummary). Logs from builds without them fall back to the existing
 lines (Total Pipeline Count, Shader precache, Runtime pipelines in the last 10 s, DKB renderer),
 and every metric names its source. compare prints a markdown table of the mean, min and max of
@@ -26,7 +26,7 @@ ANSI = re.compile(r"\x1b\[[0-9;]*m")
 FIELD = re.compile(r"(\w+)=(\S+)")
 SESSION_START = re.compile(r"Booting game: ([0-9A-Fa-f]{16})")
 LOADING = re.compile(r"Loading .* \(([0-9A-Fa-f]{16})\) \.\.\.")
-BUILD = re.compile(r"Lichii Version: (.*)$")
+BUILD = re.compile(r"Giuray Version: (.*)$")
 PRECACHE_END = re.compile(r"Shader precache: (finished|skipped|stopped), (\d+) built, .* ([\d.]+) s$")
 TOTAL_PIPELINES = re.compile(r"Total Pipeline Count: (\d+)")
 RUNTIME_10S = re.compile(r"Runtime pipelines in the last 10 s: (\d+) built, ([\d.]+) ms on the GPU thread")

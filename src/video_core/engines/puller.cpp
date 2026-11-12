@@ -143,7 +143,7 @@ AcquireCheck CheckWithoutDrain(DmaPusher& dma_pusher, const Puller::PendingAcqui
                : AcquireCheck::NotMet;
 }
 
-// EDEN_NX2_ACQUIRE_VERIFY=1: drains anyway and counts where the word after the drain disagrees
+// GIURAY_NX2_ACQUIRE_VERIFY=1: drains anyway and counts where the word after the drain disagrees
 // with what CheckWithoutDrain decided.
 void VerifyWithoutDrain(DmaPusher& dma_pusher, const Puller::PendingAcquire& acquire,
                         AcquireCheck decided) {
@@ -375,9 +375,9 @@ void Puller::ProcessFenceActionMethod(DmaPusher& dma_pusher) {
 void Puller::ProcessSemaphoreTriggerMethod(DmaPusher& dma_pusher) {
     const auto semaphoreOperationMask = 0xF;
     const auto op = GpuSemaphoreOperation(regs.semaphore_trigger & semaphoreOperationMask);
-    // EDEN_NX2_SEM_WATCH=<gpu address>: log every release/acquire on the 16 bytes there.
+    // GIURAY_NX2_SEM_WATCH=<gpu address>: log every release/acquire on the 16 bytes there.
     static const GPUVAddr watch = [] {
-        const char* value = std::getenv("EDEN_NX2_SEM_WATCH");
+        const char* value = std::getenv("GIURAY_NX2_SEM_WATCH");
         return value ? GPUVAddr{std::strtoull(value, nullptr, 16)} : GPUVAddr{};
     }();
     if (watch != 0 && (regs.semaphore_address.SemaphoreAddress() & ~GPUVAddr{0xf}) == watch) {
@@ -564,7 +564,7 @@ void Puller::ProcessSemaphoreExecute(DmaPusher& dma_pusher, u32 argument) {
 
 /// Calls a GPU puller method.
 void Puller::CallPullerMethod(DmaPusher& dma_pusher, const MethodCall& method_call) {
-    static const bool nx2_trace = std::getenv("EDEN_NX2_PULLER_TRACE") != nullptr;
+    static const bool nx2_trace = std::getenv("GIURAY_NX2_PULLER_TRACE") != nullptr;
     if (nx2_trace) {
         LOG_INFO(HW_GPU, "nx2 puller sub={} method={:#x} arg={:#x}", method_call.subchannel,
                  method_call.method, method_call.argument);
@@ -648,7 +648,7 @@ void Puller::CallPullerMethod(DmaPusher& dma_pusher, const MethodCall& method_ca
 
 /// Calls a GPU engine method.
 static bool Nx2MethodTrace() {
-    static const bool trace = std::getenv("EDEN_NX2_METHOD_TRACE") != nullptr;
+    static const bool trace = std::getenv("GIURAY_NX2_METHOD_TRACE") != nullptr;
     return trace;
 }
 

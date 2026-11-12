@@ -74,8 +74,8 @@ endif()
 option(ENABLE_QT "Enable the Qt frontend" ON)
 option(ENABLE_QT_TRANSLATION "Enable translations for the Qt frontend" OFF)
 option(ENABLE_UPDATE_CHECKER "Enable update checker (for Qt and Android)" OFF)
-set(LICHII_BUILD_TAG "" CACHE STRING "Published build-N release tag; empty for local builds")
-set(LICHII_BUILD_PLATFORM "" CACHE STRING "Release asset platform and variant, such as linux-x86_64-pgo")
+set(GIURAY_BUILD_TAG "" CACHE STRING "Published build-N release tag; empty for local builds")
+set(GIURAY_BUILD_PLATFORM "" CACHE STRING "Release asset platform and variant, such as linux-x86_64-pgo")
 cmake_dependent_option(YUZU_USE_QT_MULTIMEDIA "Use QtMultimedia for Camera"  OFF "NOT YUZU_USE_BUNDLED_QT" OFF)
 cmake_dependent_option(YUZU_USE_QT_WEB_ENGINE "Use QtWebEngine for web applet implementation" OFF "NOT YUZU_USE_BUNDLED_QT" OFF)
 set(YUZU_QT_MIRROR "" CACHE STRING "What mirror to use for downloading the bundled Qt libraries")
@@ -84,10 +84,10 @@ cmake_dependent_option(YUZU_USE_BUNDLED_QT "Download bundled Qt binaries" "${MSV
 option(ENABLE_DEBUG_TOOLS "Enable debugging tools (maxwell disassembler, SPIRV translator, etc)" OFF)
 option(ENABLE_WERROR "Enable -Werror diagnostics" ON)
 
-option(LICHII_FUZZERS "Build libFuzzer harnesses for the game-file parsers (clang only; instruments everything with ASan and UBSan)" OFF)
-if (LICHII_FUZZERS)
+option(GIURAY_FUZZERS "Build libFuzzer harnesses for the game-file parsers (clang only; instruments everything with ASan and UBSan)" OFF)
+if (GIURAY_FUZZERS)
     if (NOT CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR MSVC)
-        message(FATAL_ERROR "LICHII_FUZZERS needs clang with libFuzzer")
+        message(FATAL_ERROR "GIURAY_FUZZERS needs clang with libFuzzer")
     endif()
     add_compile_options(
         $<$<COMPILE_LANGUAGE:C,CXX>:-fsanitize=address,undefined,fuzzer-no-link>
@@ -298,7 +298,7 @@ option(NIGHTLY_BUILD "Use Nightly qualifiers in the update checker and build met
 cmake_dependent_option(YUZU_ROOM "Enable dedicated room functionality" ON "NOT ANDROID" OFF)
 cmake_dependent_option(YUZU_ROOM_STANDALONE "Enable standalone room executable" ON "YUZU_ROOM" OFF)
 
-cmake_dependent_option(YUZU_CMD "Compile the eden-cli executable" ON "NOT ANDROID" OFF)
+cmake_dependent_option(YUZU_CMD "Compile the giuray-cli executable" ON "NOT ANDROID" OFF)
 
 cmake_dependent_option(YUZU_CRASH_DUMPS "Compile crash dump (Minidump) support" OFF "WIN32 OR LINUX" OFF)
 
@@ -770,21 +770,21 @@ endif()
 
 # TODO: Icon/install handling n such should be put into dist/CMakeLists.txt
 if(ENABLE_QT AND UNIX AND NOT APPLE)
-    install(FILES "dist/io.github.zortos293.lichii.desktop"
+    install(FILES "dist/io.github.moraeszz2.giuray.desktop"
         DESTINATION "share/applications")
-    install(FILES "dist/lichii.png"
+    install(FILES "dist/giuray.png"
         DESTINATION "share/icons/hicolor/256x256/apps"
-        RENAME "io.github.zortos293.lichii.png")
+        RENAME "io.github.moraeszz2.giuray.png")
 
-    install(FILES "dist/io.github.zortos293.lichii.xml"
+    install(FILES "dist/io.github.moraeszz2.giuray.xml"
         DESTINATION "share/mime/packages")
-    install(FILES "dist/io.github.zortos293.lichii.metainfo.xml"
+    install(FILES "dist/io.github.moraeszz2.giuray.metainfo.xml"
         DESTINATION "share/metainfo")
 endif()
 
 if (YUZU_INSTALL_UDEV_RULES)
     include(GNUInstallDirs)
 
-    install(FILES "dist/72-eden-input.rules"
+    install(FILES "dist/72-giuray-input.rules"
         DESTINATION "${CMAKE_INSTALL_LIBDIR}/udev/rules.d")
 endif()

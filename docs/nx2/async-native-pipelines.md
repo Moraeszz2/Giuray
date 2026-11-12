@@ -55,7 +55,7 @@ build; ordinary native draw waits never do.
 
 ## Upstream alternative
 
-[Eglantine PR #503](https://github.com/Djihads80/Eglantine/pull/503), inspected at
+upstream #503, inspected at
 `7584d618f8dec5fc1fa8c76fde68489ab5f76c9c`, implements full async translation with detached
 environments. Its desktop timeout discards native draws, and its texture snapshots still read
 live descriptor memory later without synchronization. Porting that behavior would violate this
@@ -71,7 +71,7 @@ worker graphics emission time, and time VulkanWorker spent holding draws for pen
 Emission timing includes shader-module creation. Worker build totals overlap GPUBack work and
 must not be added to GPUBack's elapsed time.
 
-`EDEN_NX2_PERF_VERIFY=1` also emits reference SPIR-V on GPUBack. The worker compares every emitted
+`GIURAY_NX2_PERF_VERIFY=1` also emits reference SPIR-V on GPUBack. The worker compares every emitted
 word against that reference, logs any mismatch as `Nx2Perf async_pipelines:`, and uses the
 reference on a mismatch. Verification deliberately adds synchronous work and is not a performance
 measurement mode.

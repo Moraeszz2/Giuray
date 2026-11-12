@@ -10,6 +10,7 @@
 #include <optional>
 
 #include <filesystem>
+#include <QColor>
 #include <QElapsedTimer>
 #include <QMainWindow>
 #include <QPointer>
@@ -28,7 +29,6 @@
 #include "qt_common/config/qt_config.h"
 #include "qt_common/qt_common.h"
 #include "qt_common/util/game.h"
-#include "yuzu/compatibility_report.h"
 #include "yuzu/hotkeys.h"
 #include "yuzu/user_data_migration.h"
 
@@ -72,6 +72,7 @@ class ConfigurePostProcessing;
 enum class GameListOpenTarget;
 enum class DumpRomFSTarget;
 class GameListPlaceholder;
+class NavSidebar;
 
 class QtAmiiboSettingsDialog;
 class QtControllerSelectorDialog;
@@ -242,6 +243,7 @@ signals:
 public slots:
     void OnLoadComplete();
     void OnOcarinaMultiplayer();
+    void UpdateMultiplayerStatus();
     void OnExecuteProgram(std::size_t program_index);
     void OnExit();
     void OnSaveConfig();
@@ -360,7 +362,6 @@ private slots:
     void OnPauseContinueGame();
     void OnStopGame();
     void OnPrepareForSleep(bool prepare_sleep);
-    void OnMenuReportCompatibility();
     void OnOpenModsPage();
     void OnOpenUserHandbook();
 
@@ -540,11 +541,15 @@ private:
     PerformanceOverlay* perf_overlay = nullptr;
     MultiplayerOverlay* mp_overlay = nullptr;
     MultiplayerDialog* mp_dialog = nullptr;
+    QPushButton* mp_status_button = nullptr;
+    QColor mp_status_dot;
+    QTimer mp_status_timer;
 #ifdef HAS_RESHADE
     ConfigurePostProcessing* post_processing_dialog = nullptr;
 #endif
 
     GameListPlaceholder* game_list_placeholder = nullptr;
+    NavSidebar* nav_sidebar = nullptr;
 
     std::vector<VkDeviceInfo::Record> vk_device_records;
 
@@ -586,7 +591,6 @@ private:
 
     // Whether emulation is currently running in yuzu.
     bool emulation_running = false;
-    std::optional<CompatibilityReporting::Session> report_session;
     bool boot_in_progress = false;
     bool close_pending = false;
     // The path to the game currently running

@@ -21,7 +21,7 @@ not passed. This does not establish correct in-game rendering.
   stage annotations. The annotations were `15b2f0501bd24b1d=tess-eval` and
   `31eced459be1ef3e=vertex`. Missing headers were not invented.
 - The baseline compiler used `origin/nx2` at `9a435b5`. The final run includes upstream merge
-  `13f533027c`, based on Eglantine `a666e4400b`, plus the fixes below. It uses the same
+  `13f533027c`, based on upstream `a666e4400b`, plus the fixes below. It uses the same
   Vulkan-style SPIR-V 1.4 profile and validates for Vulkan 1.2. Descriptor aliasing and
   direct narrow storage are disabled to exercise portable paths. See
   [the compiler profile](../tools/shader-sweep/README.md#offline-context-and-profile).
@@ -48,7 +48,7 @@ their missing header or constant-buffer data. This is not three new compiler reg
 ## What changed
 
 **Ported or integrated work.** The storage CAS-helper guard was ported from
-[Eglantine PR #178](https://github.com/Djihads80/Eglantine/pull/178). The second upstream merge
+upstream #178. The second upstream merge
 also brings the equivalent `ad98585`, whose implementation is retained. The tool includes a
 complete captured Bananza regression environment that aborts before the guard change and
 validates afterward.

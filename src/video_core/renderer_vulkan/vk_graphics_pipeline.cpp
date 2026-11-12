@@ -293,24 +293,24 @@ ConfigureFuncPtr ConfigureFunc(const std::array<bool, NUM_STAGES>& stages,
 }
 
 std::atomic<std::chrono::nanoseconds::rep> hold_time_ns{};
-// EDEN_NX2_TEXTURE_MEMO_VERIFY=1, read once: draws resolved from a memo are also resolved in full
+// GIURAY_NX2_TEXTURE_MEMO_VERIFY=1, read once: draws resolved from a memo are also resolved in full
 // and compared.
 bool TextureMemoVerify() {
     static const bool verify = [] {
-        const char* const value = std::getenv("EDEN_NX2_TEXTURE_MEMO_VERIFY");
+        const char* const value = std::getenv("GIURAY_NX2_TEXTURE_MEMO_VERIFY");
         return value != nullptr && value[0] == '1';
     }();
     return verify;
 }
 
-// EDEN_NX2_DELTA_DESCRIPTORS_VERIFY=1: delta draws resolve their image descriptors as before and
+// GIURAY_NX2_DELTA_DESCRIPTORS_VERIFY=1: delta draws resolve their image descriptors as before and
 // compare them with the kept ones.
 const bool delta_descriptors_verify = [] {
-    const char* const value = std::getenv("EDEN_NX2_DELTA_DESCRIPTORS_VERIFY");
+    const char* const value = std::getenv("GIURAY_NX2_DELTA_DESCRIPTORS_VERIFY");
     return value != nullptr && value[0] == '1';
 }();
 
-// Delta draws on the drawing thread, logged every 10 s with EDEN_NX2_GPU_PROFILE or the verify
+// Delta draws on the drawing thread, logged every 10 s with GIURAY_NX2_GPU_PROFILE or the verify
 // env.
 struct DeltaDescriptorStats {
     u64 replayed{};
@@ -339,7 +339,7 @@ void ReportDeltaDescriptors() {
     stats = {.next_report = now + std::chrono::seconds{10}};
 }
 
-// Texture memo counts, logged every 10 s with EDEN_NX2_GPU_PROFILE or the verify env.
+// Texture memo counts, logged every 10 s with GIURAY_NX2_GPU_PROFILE or the verify env.
 std::atomic<u64> g_memo_hits{};
 std::atomic<u64> g_memo_misses{};
 std::atomic<u64> g_memo_mismatches{};
@@ -1199,7 +1199,7 @@ bool GraphicsPipeline::ConfigureDelta(bool is_indexed) {
     const VideoCommon::SamplerId* samplers_it{delta_samplers.data()};
     const VideoCommon::ImageViewInOut* views_it{delta_views.data()};
     // Push the entries kept for delta_views instead of resolving every view and sampler again;
-    // with EDEN_NX2_DELTA_DESCRIPTORS_VERIFY resolve them and compare.
+    // with GIURAY_NX2_DELTA_DESCRIPTORS_VERIFY resolve them and compare.
     const bool kept_usable = kept_images_valid && kept_scale_epoch == texture_cache.ScaleEpoch();
     const bool replay_images = kept_usable && !delta_descriptors_verify;
     struct Kept {

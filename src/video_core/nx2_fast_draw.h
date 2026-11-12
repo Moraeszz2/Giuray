@@ -31,7 +31,7 @@ class MemoryManager;
 /// deletions, shader removals, fence releases, HLE macros and frames. The rasterizer takes the
 /// delta path only while the serial, the GPU memory map, the command buffer, the render pass and
 /// the bound pipeline are the ones the previous draw left.
-/// EDEN_NX2_FAST_DRAW_VERIFY=1 resolves those draws in full and counts where the pipeline, views,
+/// GIURAY_NX2_FAST_DRAW_VERIFY=1 resolves those draws in full and counts where the pipeline, views,
 /// samplers or kept buffer bindings differ.
 namespace VideoCommon::Nx2FastDraw {
 
@@ -73,10 +73,10 @@ inline void SetEnabledForTest(bool on) {
     g_enabled.store(on, std::memory_order_relaxed);
 }
 
-/// EDEN_NX2_FAST_DRAW_VERIFY=1, read once.
+/// GIURAY_NX2_FAST_DRAW_VERIFY=1, read once.
 [[nodiscard]] inline bool VerifyEnabled() {
     static const bool verify = [] {
-        const char* const value = std::getenv("EDEN_NX2_FAST_DRAW_VERIFY");
+        const char* const value = std::getenv("GIURAY_NX2_FAST_DRAW_VERIFY");
         return value != nullptr && value[0] == '1';
     }();
     return verify;
