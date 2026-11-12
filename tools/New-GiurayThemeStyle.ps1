@@ -13,8 +13,8 @@ if ($start -lt 0) { throw 'qdarkstyle: per-widget rules not found' }
 $tail = ($dark[$start..($dark.Length - 1)] -join "`n")
 
 $colors = [ordered]@{
-    '#232629' = '#121521'; '#31363b' = '#1B1F2D'; '#76797c' = '#353B50'; '#54575b' = '#262B3B'
-    '#2a2929' = '#121521'; '#929192' = '#A3A9BE'; '#f0f0f0' = '#E6E8F0'; '#39ff14' = '#6366F1'
+    '#232629' = '#161618'; '#31363b' = '#202024'; '#76797c' = '#38383F'; '#54575b' = '#29292E'
+    '#2a2929' = '#161618'; '#929192' = '#A1A1AA'; '#f0f0f0' = '#E4E4E7'; '#39ff14' = '#DC2626'
 }
 foreach ($key in $colors.Keys) {
     $tail = [Regex]::Replace($tail, [Regex]::Escape($key), $colors[$key], 'IgnoreCase')

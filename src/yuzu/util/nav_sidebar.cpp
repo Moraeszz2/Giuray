@@ -21,8 +21,8 @@ constexpr int GlyphSize = 22;
 constexpr qreal Scale = 2.0;
 
 // Theme colors: muted text for the resting icon, near-white when hovered or pressed.
-const QColor RestColor{0xA3, 0xA9, 0xBE};
-const QColor ActiveColor{0xF8, 0xF9, 0xFC};
+const QColor RestColor{0xA1, 0xA1, 0xAA};
+const QColor ActiveColor{0xFA, 0xFA, 0xFA};
 
 void DrawGlyph(QPainter& p, NavSidebar::Glyph glyph) {
     // Drawn on a 22x22 grid.

@@ -2,13 +2,13 @@
 
 QDialog#OverlayDialog,
 QStackedWidget#stackedDialog {
-    background: rgba(6, 8, 14, 0.72);
+    background: rgba(9, 9, 11, 0.72);
 }
 
 QWidget#contentDialog,
 QWidget#contentRichDialog {
-    background: #121521;
-    border: 1px solid #262B3B;
+    background: #161618;
+    border: 1px solid #29292E;
     border-radius: 12px;
     margin: 0px;
 }
@@ -16,35 +16,35 @@ QWidget#contentRichDialog {
 QWidget#buttonsDialog,
 QWidget#buttonsRichDialog {
     margin: 0px;
-    border-top: 1px solid #262B3B;
+    border-top: 1px solid #29292E;
 }
 
 QWidget#contentDialog QLabel {
-    color: #F8F9FC;
+    color: #FAFAFA;
 }
 
 QWidget#contentDialog QProgressBar#overlayBusy {
-    background-color: #1B1F2D;
+    background-color: #202024;
     border: none;
     border-radius: 2px;
 }
 
 QWidget#contentDialog QProgressBar#overlayBusy::chunk {
-    background-color: #6366F1;
+    background-color: #DC2626;
     border-radius: 2px;
 }
 
 QWidget#contentDialog QLabel#label_title,
 QWidget#contentRichDialog QLabel#label_title_rich {
-    color: #A3A9BE;
+    color: #A1A1AA;
 }
 
 QWidget#richDialog QTextBrowser {
-    color: #E6E8F0;
+    color: #E4E4E7;
 }
 
 QDialog#OverlayDialog QPushButton {
-    color: #C7D2FE;
+    color: #FCA5A5;
     background: transparent;
     border: none;
     border-radius: 0px;
@@ -55,35 +55,35 @@ QDialog#OverlayDialog QPushButton {
 QDialog#OverlayDialog QPushButton:focus,
 QDialog#OverlayDialog QPushButton:hover {
     color: #FFFFFF;
-    background: rgba(99, 102, 241, 0.18);
+    background: rgba(220, 38, 38, 0.18);
     border: none;
     outline: none;
 }
 
 QDialog#OverlayDialog QPushButton:pressed {
     color: #FFFFFF;
-    background: rgba(99, 102, 241, 0.32);
+    background: rgba(220, 38, 38, 0.32);
     border: none;
 }
 
 QStackedWidget#topOSK {
-    background: rgba(6, 8, 14, 0.85);
+    background: rgba(9, 9, 11, 0.85);
 }
 
 QStackedWidget#bottomOSK {
-    background: #121521;
+    background: #161618;
 }
 
 /* ---------- Console layout: navigation rail, carousel panel, settings categories ---------- */
 
 QFrame#NavSidebar {
-    background-color: #0B0D14;
+    background-color: #0E0E10;
     border: none;
-    border-right: 1px solid #1B1F2D;
+    border-right: 1px solid #202024;
 }
 
 QFrame#NavSidebar QToolButton#NavButton {
-    color: #A3A9BE;
+    color: #A1A1AA;
     background: transparent;
     border: none;
     border-radius: 12px;
@@ -92,37 +92,37 @@ QFrame#NavSidebar QToolButton#NavButton {
 }
 
 QFrame#NavSidebar QToolButton#NavButton:hover {
-    color: #F8F9FC;
-    background-color: #1B1F2D;
+    color: #FAFAFA;
+    background-color: #202024;
 }
 
 QFrame#NavSidebar QToolButton#NavButton:pressed {
-    background-color: #262B3B;
+    background-color: #29292E;
 }
 
 QFrame#NavSidebar QToolButton#NavButton[active="true"] {
-    color: #F8F9FC;
-    background-color: rgba(99, 102, 241, 0.18);
+    color: #FAFAFA;
+    background-color: rgba(220, 38, 38, 0.18);
 }
 
 QFrame#NavSidebar QToolButton#NavButton:disabled {
-    color: #545B73;
+    color: #52525B;
 }
 
 QFrame#GameHero {
-    background-color: #0B0D14;
+    background-color: #0E0E10;
     border: none;
-    border-top: 1px solid #1B1F2D;
+    border-top: 1px solid #202024;
 }
 
 QFrame#GameHero QLabel#GameHeroTitle {
-    color: #F8F9FC;
+    color: #FAFAFA;
     font-size: 24px;
     font-weight: 700;
 }
 
 QFrame#GameHero QLabel#GameHeroDetails {
-    color: #A3A9BE;
+    color: #A1A1AA;
     font-size: 13px;
 }
 
@@ -151,7 +151,7 @@ QTreeWidget#selectorList {
 
 QListWidget#selectorList::item,
 QTreeWidget#selectorList::item {
-    color: #A3A9BE;
+    color: #A1A1AA;
     padding: 10px 14px;
     margin: 1px 0px;
     border-radius: 10px;
@@ -159,12 +159,12 @@ QTreeWidget#selectorList::item {
 
 QListWidget#selectorList::item:hover,
 QTreeWidget#selectorList::item:hover {
-    color: #F8F9FC;
-    background-color: #1B1F2D;
+    color: #FAFAFA;
+    background-color: #202024;
 }
 
 QListWidget#selectorList::item:selected,
 QTreeWidget#selectorList::item:selected {
-    color: #F8F9FC;
-    background-color: rgba(99, 102, 241, 0.22);
+    color: #FAFAFA;
+    background-color: rgba(220, 38, 38, 0.22);
 }

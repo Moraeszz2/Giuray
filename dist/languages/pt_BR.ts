@@ -4777,6 +4777,23 @@ Os valores atuais são %1% e %2% respectivamente.</translation>
         <source>Properties</source>
         <translation>Propriedades</translation>
     </message>
+    <message>
+        <location filename="../../src/yuzu/configuration/configure_per_game.cpp"/>
+        <source>Saving the name into the NUP file.
+This copies the whole file and can take several minutes.</source>
+        <translation>Salvando o nome no arquivo NUP.
+Isso copia o arquivo inteiro e pode levar vários minutos.</translation>
+    </message>
+    <message>
+        <location filename="../../src/yuzu/configuration/configure_per_game.cpp"/>
+        <source>Update NUP Metadata</source>
+        <translation>Atualizar metadados do NUP</translation>
+    </message>
+    <message>
+        <location filename="../../src/yuzu/configuration/configure_per_game.cpp"/>
+        <source>Failed to save the game icon.</source>
+        <translation>Não foi possível salvar o ícone do jogo.</translation>
+    </message>
 </context>
 <context>
     <name>ConfigurePerGameAddons</name>
@@ -8259,6 +8276,31 @@ Would you like to bypass this and exit anyway?</source>
         <source>Null</source>
         <translation type="unfinished"/>
     </message>
+    <message>
+        <location filename="../../src/yuzu/main_window.cpp"/>
+        <source>Library</source>
+        <translation>Biblioteca</translation>
+    </message>
+    <message>
+        <location filename="../../src/yuzu/main_window.cpp"/>
+        <source>Open</source>
+        <translation>Abrir</translation>
+    </message>
+    <message>
+        <location filename="../../src/yuzu/main_window.cpp"/>
+        <source>Install</source>
+        <translation>Instalar</translation>
+    </message>
+    <message>
+        <location filename="../../src/yuzu/main_window.cpp"/>
+        <source>Online</source>
+        <translation>Online</translation>
+    </message>
+    <message>
+        <location filename="../../src/yuzu/main_window.cpp"/>
+        <source>Settings</source>
+        <translation>Configurações</translation>
+    </message>
 </context>
 <context>
     <name>MigrationWorker</name>
@@ -10709,6 +10751,34 @@ Error code: %3</source>
         <location filename="../../src/yuzu/updater/update_dialog.cpp" line="173"/>
         <source>Successfully downloaded %1. Would you like to open it?</source>
         <translation type="unfinished"/>
+    </message>
+</context>
+<context>
+    <name>GameHero</name>
+    <message>
+        <location filename="../../src/yuzu/game/game_hero.cpp"/>
+        <source>Choose a game</source>
+        <translation>Escolha um jogo</translation>
+    </message>
+    <message>
+        <location filename="../../src/yuzu/game/game_hero.cpp"/>
+        <source>Use the arrows, the mouse or a controller to browse your library.</source>
+        <translation>Use as setas, o mouse ou um controle para navegar pela sua biblioteca.</translation>
+    </message>
+    <message>
+        <location filename="../../src/yuzu/game/game_hero.cpp"/>
+        <source>%1 played</source>
+        <translation>%1 de jogo</translation>
+    </message>
+    <message>
+        <location filename="../../src/yuzu/game/game_hero.cpp"/>
+        <source>Play</source>
+        <translation>Jogar</translation>
+    </message>
+    <message>
+        <location filename="../../src/yuzu/game/game_hero.cpp"/>
+        <source>Properties</source>
+        <translation>Propriedades</translation>
     </message>
 </context>
 </TS>

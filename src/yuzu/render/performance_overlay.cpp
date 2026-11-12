@@ -47,14 +47,14 @@ constexpr std::size_t FpsSamples = 10;
 /// A frame this much slower than the median is a spike.
 constexpr float SpikeRatio = 1.2f;
 
-constexpr QRgb TextColor = qRgb(0xF8, 0xF9, 0xFC);
-constexpr QRgb MutedColor = qRgb(0xA3, 0xA9, 0xBE);
-constexpr QRgb DimColor = qRgb(0x73, 0x7A, 0x92);
-constexpr QRgb AccentColor = qRgb(0x81, 0x8C, 0xF8);
-constexpr QRgb SpikeColor = qRgb(0xFF, 0x5D, 0x52);
-constexpr QRgb BackgroundColor = qRgba(0x0B, 0x0D, 0x14, 190);
-constexpr QRgb BorderColor = qRgba(0x81, 0x8C, 0xF8, 60);
-constexpr QRgb LineColor = qRgba(0xF8, 0xF9, 0xFC, 217);
+constexpr QRgb TextColor = qRgb(0xFA, 0xFA, 0xFA);
+constexpr QRgb MutedColor = qRgb(0xA1, 0xA1, 0xAA);
+constexpr QRgb DimColor = qRgb(0x71, 0x71, 0x7A);
+constexpr QRgb AccentColor = qRgb(0xF8, 0x71, 0x71);
+constexpr QRgb SpikeColor = qRgb(0xFB, 0xBF, 0x24);
+constexpr QRgb BackgroundColor = qRgba(0x0E, 0x0E, 0x10, 190);
+constexpr QRgb BorderColor = qRgba(0xDC, 0x26, 0x26, 70);
+constexpr QRgb LineColor = qRgba(0xFA, 0xFA, 0xFA, 217);
 constexpr QRgb AxisColor = qRgba(255, 255, 255, 46);
 constexpr QRgb MedianLineColor = qRgba(255, 255, 255, 56);
 
