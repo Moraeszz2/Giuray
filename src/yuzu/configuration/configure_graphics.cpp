@@ -224,7 +224,7 @@ void ConfigureGraphics::Setup(const ConfigurationShared::Builder& builder) {
     QCheckBox* frame_gen_checkbox = nullptr;
     QComboBox* frame_gen_type_combobox = nullptr;
     QCheckBox* nvidia_dlss_checkbox = nullptr;
-#ifdef EGLANTINE_STREAMLINE
+#ifdef GIURAY_STREAMLINE
     NvidiaDlssPanel* nvidia_dlss_panel = nullptr;
 #endif
 
@@ -242,8 +242,8 @@ void ConfigureGraphics::Setup(const ConfigurationShared::Builder& builder) {
             continue;
         }
 #endif
-#ifndef _WIN32
-        // AMD's FSR 4 runtime is Windows-only.
+#if !defined(_WIN32) && !defined(__linux__)
+        // FSR 4 runs through AMD's runtime on Windows and the fsr4-vk port on Linux.
         if (setting->Id() == Settings::values.amd_fsr4.Id()) {
             continue;
         }
@@ -422,7 +422,7 @@ void ConfigureGraphics::Setup(const ConfigurationShared::Builder& builder) {
         }
     }
 
-#ifdef EGLANTINE_STREAMLINE
+#ifdef GIURAY_STREAMLINE
     // The panel lists DLSS Frame Generation's files too while that frame generation type is
     // chosen, and shows for it even before "Use NVIDIA DLSS" is ticked.
     if (nvidia_dlss_panel != nullptr) {
