@@ -134,6 +134,7 @@ static FileSys::VirtualFile VfsDirectoryCreateFileWrapper(const FileSys::Virtual
 
 // Frontend //
 #include "frontend_common/play_time_manager.h"
+#include "frontend_common/recommended_settings.h"
 
 #ifdef ENABLE_UPDATE_CHECKER
 #include "frontend_common/update_checker.h"
@@ -185,7 +186,7 @@ static FileSys::VirtualFile VfsDirectoryCreateFileWrapper(const FileSys::Virtual
 #include "video_core/gpu.h"
 #include "video_core/renderer_base.h"
 #include "video_core/shader_notify.h"
-#ifdef EGLANTINE_STREAMLINE
+#ifdef GIURAY_STREAMLINE
 #include "video_core/vulkan_common/streamline.h"
 #include "video_core/vulkan_common/streamline_frame_gen.h"
 #endif
@@ -1136,7 +1137,7 @@ void MainWindow::InitializeWidgets() {
             [this](const QPoint& menu_location) {
                 QMenu context_menu;
                 for (auto const& [type, text] : ConfigurationShared::frame_gen_type_texts_map) {
-#ifndef EGLANTINE_STREAMLINE
+#ifndef GIURAY_STREAMLINE
                     // Only builds with NVIDIA Streamline (Windows) have DLSS Frame Generation.
                     if (type == Settings::FrameGenType::NvidiaDlssG) {
                         continue;
@@ -4364,7 +4365,7 @@ void MainWindow::OnApplyRecommendedSettings() {
     if (!RecommendedSettingsDialog::Ask(this) || emulation_running) {
         return;
     }
-    const auto changes = Settings::ApplyRecommendedSettings(Settings::values);
+    const auto changes = FrontendCommon::ApplyRecommendedSettings(Settings::values);
     LOG_INFO(Config, "Applied the recommended settings: {} changed", changes.size());
     Settings::UpdateGPUAccuracy();
     OnSaveConfig();
@@ -4376,7 +4377,7 @@ void MainWindow::OnRestorePreviousSettings() {
     if (emulation_running) {
         return;
     }
-    const auto changes = Settings::RestorePreviousSettings(Settings::values);
+    const auto changes = FrontendCommon::RestorePreviousSettings(Settings::values);
     LOG_INFO(Config, "Restored the settings from before the recommended ones: {} changed",
              changes.size());
     Settings::UpdateGPUAccuracy();
@@ -5243,7 +5244,7 @@ void MainWindow::UpdateStatusBar() {
                                            static_cast<double>(frame_gen_ms)
                                      : 0.0;
     frame_gen_generating = frame_gen.generated_frames > frame_gen_frames;
-#ifdef EGLANTINE_STREAMLINE
+#ifdef GIURAY_STREAMLINE
     // NVIDIA DLSS Frame Generation adds its frames after the renderer, at present.
     if (Vulkan::Streamline::FrameGenActive()) {
         const auto rates = Vulkan::Streamline::FrameGenRecentRates();
@@ -5301,7 +5302,7 @@ void MainWindow::UpdateStatusBar() {
 
     QString fpsText = tr("Game: %1 FPS").arg(std::round(results.average_game_fps), 0, 'f', 0);
     QString fpsSuffix = m_fpsSuffix;
-#ifdef EGLANTINE_STREAMLINE
+#ifdef GIURAY_STREAMLINE
     if (Vulkan::Streamline::FrameGenActive()) {
         QString frameGen = Vulkan::Streamline::FrameGenRecentRates().generating
                                ? tr("DLSS FG")
