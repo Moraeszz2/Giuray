@@ -1089,6 +1089,7 @@ add_library(core STATIC
     hle/service/nx2_stub_interface.h
     hle/service/nx2_auto_resolution.h
     hle/service/nx2_gsv.h
+    hle/service/nx2_frame_interval.h
     hle/service/nx2_movie_clock.h
     hle/service/nx2_video_input_queue.h
     hle/service/nx2_image_layout.h
