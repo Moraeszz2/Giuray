@@ -29,7 +29,7 @@ std::string ReadDump(const std::filesystem::path& directory) {
 TEST_CASE("ListMacroTrace: a macro call is noted only when a GPU-written entry fed it",
           "[video_core]") {
     namespace Trace = VideoCommon::ListMacroTrace;
-    const auto directory = std::filesystem::temp_directory_path() / "lichii-list-macro-trace";
+    const auto directory = std::filesystem::temp_directory_path() / "giuray-list-macro-trace";
     std::filesystem::remove_all(directory);
 #ifdef _WIN32
     _putenv_s("GIURAY_NX2_DEBUG_DIR", directory.string().c_str());

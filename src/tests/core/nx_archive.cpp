@@ -375,7 +375,7 @@ TEST_CASE("NX: a native base supports external updates and version disabling",
 }
 
 TEST_CASE("NX: registering an archive preserves an external NSP add-on", "[core][nx][external]") {
-    for (const auto archive : {"lichii_synthetic.nx", "native_external_base.nx"}) {
+    for (const auto archive : {"giuray_synthetic.nx", "native_external_base.nx"}) {
         DYNAMIC_SECTION(archive) {
             ScopedSystemTestContext environment;
             Core::System system;
@@ -388,7 +388,7 @@ TEST_CASE("NX: registering an archive preserves an external NSP add-on", "[core]
             loader.RegisterContent(provider);
             const auto entries = provider.ListEntriesFilter(
                 FileSys::TitleType::AOC, FileSys::ContentRecordType::Data, std::nullopt);
-            REQUIRE(entries.size() == (std::string_view(archive) == "lichii_synthetic.nx" ? 2 : 1));
+            REQUIRE(entries.size() == (std::string_view(archive) == "giuray_synthetic.nx" ? 2 : 1));
             const auto dlc =
                 provider.GetEntry(ApplicationId + 0x1002, FileSys::ContentRecordType::Data);
             REQUIRE(dlc != nullptr);

@@ -137,7 +137,7 @@ void ConfigureClient(httplib::Client& client, time_t timeout_seconds) {
 }
 
 httplib::Headers BaseHeaders(std::string_view client_id) {
-    return {{"User-Agent", "Lichii"}, {"X-Nextendo-Client-Id", std::string{client_id}}};
+    return {{"User-Agent", "Giuray"}, {"X-Nextendo-Client-Id", std::string{client_id}}};
 }
 
 httplib::Headers BearerHeaders(std::string_view client_id, const std::string& token) {
@@ -253,7 +253,7 @@ std::optional<Account> LoadAccountLocked() {
 
 // The file holds the refresh token, so only its owner may read it. It is written beside the old
 // one and renamed over it, so a crash mid-write keeps the previous session. The session stays in
-// memory when the write fails, so a rotated refresh token isn't lost until Lichii exits.
+// memory when the write fails, so a rotated refresh token isn't lost until Giuray exits.
 bool WriteAccountLocked(const Account& account) {
     cached_account = account;
     account_loaded = true;
@@ -480,7 +480,7 @@ SignInResult SignIn(std::string_view client_id,
     const auto pkce = MakePkce();
     const auto state = RandomToken();
     if (!pkce || !state) {
-        out.error = "Lichii could not generate a random sign-in key.";
+        out.error = "Giuray could not generate a random sign-in key.";
         return out;
     }
 
@@ -507,7 +507,7 @@ SignInResult SignIn(std::string_view client_id,
         }
         response.set_content(parsed.error.empty()
                                  ? "Signed in to Nextendo. You can close this tab and go back "
-                                   "to Lichii."
+                                   "to Giuray."
                                  : "Nextendo sign-in failed: " + parsed.error,
                              "text/plain; charset=utf-8");
         {
@@ -519,7 +519,7 @@ SignInResult SignIn(std::string_view client_id,
         cv.notify_all();
     });
     if (!server.bind_to_port("127.0.0.1", CallbackPort)) {
-        out.error = fmt::format("Lichii could not listen on 127.0.0.1:{}. Close whatever uses "
+        out.error = fmt::format("Giuray could not listen on 127.0.0.1:{}. Close whatever uses "
                                 "that port and try again.",
                                 CallbackPort);
         return out;

@@ -464,7 +464,7 @@ MainWindow::MainWindow(bool has_broken_vulkan)
         connect(&nextendo_session_watcher, &QFutureWatcher<bool>::finished, this, [this] {
             if (nextendo_session_watcher.result()) {
                 QMessageBox::warning(this, tr("Signed out of Nextendo"),
-                                     tr("Your session was ended on nextendo.network, so Lichii "
+                                     tr("Your session was ended on nextendo.network, so Giuray "
                                         "signed you out. Sign in again in Configure > Network."));
             }
         });
