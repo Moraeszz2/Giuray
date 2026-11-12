@@ -66,6 +66,7 @@
 #include "core/hle/service/services.h"
 #include "core/hle/service/set/system_settings_server.h"
 #include "core/hle/service/sm/sm.h"
+#include "core/internal_network/local_redirect.h"
 #include "core/internal_network/network.h"
 #include "core/loader/loader.h"
 #include "core/loader/nx.h"
@@ -436,6 +437,7 @@ struct System::Impl {
         Settings::SetCurrentProgramIsSwitch2(switch2_program);
         Settings::SetAstcRecompressionOverride(std::nullopt);
         Settings::SetGameHandheldOverride(false);
+        Network::LocalRedirect::Configure();
 
         if (const auto ram = Common::GetHostRam();
             switch2_program && Common::IsBelowSwitch2RamMinimum(ram)) {
