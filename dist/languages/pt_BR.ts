@@ -8276,31 +8276,6 @@ Would you like to bypass this and exit anyway?</source>
         <source>Null</source>
         <translation type="unfinished"/>
     </message>
-    <message>
-        <location filename="../../src/yuzu/main_window.cpp"/>
-        <source>Library</source>
-        <translation>Biblioteca</translation>
-    </message>
-    <message>
-        <location filename="../../src/yuzu/main_window.cpp"/>
-        <source>Open</source>
-        <translation>Abrir</translation>
-    </message>
-    <message>
-        <location filename="../../src/yuzu/main_window.cpp"/>
-        <source>Install</source>
-        <translation>Instalar</translation>
-    </message>
-    <message>
-        <location filename="../../src/yuzu/main_window.cpp"/>
-        <source>Online</source>
-        <translation>Online</translation>
-    </message>
-    <message>
-        <location filename="../../src/yuzu/main_window.cpp"/>
-        <source>Settings</source>
-        <translation>Configurações</translation>
-    </message>
 </context>
 <context>
     <name>MigrationWorker</name>

@@ -67,7 +67,7 @@
 
 #include "util/clickable_label.h"
 #include "util/controller_navigation.h"
-#include "util/nav_sidebar.h"
+#include "util/glyphs.h"
 #include "util/overlay_dialog.h"
 
 #include "multiplayer/state.h"
@@ -97,7 +97,6 @@
 #include <QScreen>
 #include <QShortcut>
 #include <QStatusBar>
-#include <QToolButton>
 #include <QtConcurrentRun>
 
 #ifdef __APPLE__
@@ -969,19 +968,6 @@ void MainWindow::InitializeWidgets() {
     ui->horizontalLayout->addWidget(game_list_placeholder);
     game_list_placeholder->setVisible(false);
 
-    nav_sidebar = new NavSidebar(this);
-    auto* show_library = new QAction(tr("Library"), this);
-    connect(show_library, &QAction::triggered, this, [this] { game_list->SetFilterFocus(); });
-    nav_sidebar->AddAction(show_library, NavSidebar::Glyph::Library, tr("Library"))
-        ->setProperty("active", true);
-    nav_sidebar->AddAction(ui->action_Load_File, NavSidebar::Glyph::Open, tr("Open"));
-    nav_sidebar->AddAction(ui->action_Install_File_NAND, NavSidebar::Glyph::Install, tr("Install"));
-    nav_sidebar->AddAction(ui->action_View_Lobby, NavSidebar::Glyph::Multiplayer, tr("Online"));
-    nav_sidebar->AddAction(ui->action_Configure, NavSidebar::Glyph::Settings, tr("Settings"),
-                           true);
-    ui->horizontalLayout->insertWidget(0, nav_sidebar);
-    nav_sidebar->Follow({game_list, game_list_placeholder});
-
     loading_screen = new LoadingScreen(this);
     loading_screen->hide();
     ui->horizontalLayout->addWidget(loading_screen);
@@ -1040,6 +1026,26 @@ void MainWindow::InitializeWidgets() {
     firmware_label->setFocusPolicy(Qt::NoFocus);
     statusBar()->addPermanentWidget(firmware_label);
 
+    // Library shortcuts, shown while the library is: a key cap and what it does.
+    library_hints = new QWidget();
+    library_hints->setObjectName(QStringLiteral("StatusHints"));
+    auto* const hints_layout = new QHBoxLayout(library_hints);
+    hints_layout->setContentsMargins(0, 0, 8, 0);
+    hints_layout->setSpacing(6);
+    const auto add_hint = [&](const QString& key, const QString& text) {
+        auto* const cap = new QLabel(key);
+        cap->setObjectName(QStringLiteral("StatusKey"));
+        auto* const label = new QLabel(text);
+        label->setObjectName(QStringLiteral("StatusHint"));
+        hints_layout->addWidget(cap);
+        hints_layout->addWidget(label);
+        hints_layout->addSpacing(10);
+    };
+    add_hint(QStringLiteral("A"), tr("Play"));
+    add_hint(QStringLiteral("Enter"), tr("Play"));
+    add_hint(QStringLiteral("Ctrl F"), tr("Search"));
+    statusBar()->addPermanentWidget(library_hints, 0);
+
     statusBar()->addPermanentWidget(multiplayer_state->GetStatusText(), 0);
     statusBar()->addPermanentWidget(multiplayer_state->GetStatusIcon(), 0);
 
@@ -1072,6 +1078,7 @@ void MainWindow::InitializeWidgets() {
 
     volume_button = new VolumeButton();
     volume_button->setObjectName(QStringLiteral("TogglableStatusBarButton"));
+    volume_button->setIcon(Glyphs::Icon(Glyphs::Glyph::Volume));
     volume_button->setFocusPolicy(Qt::NoFocus);
     volume_button->setCheckable(true);
     UpdateVolumeUI();
@@ -2300,6 +2307,7 @@ void MainWindow::BootGame(const QString& filename, Service::AM::FrontendAppletPa
         game_list_placeholder->hide();
     }
     status_bar_update_timer.start(500);
+    library_hints->setVisible(false);
     renderer_status_button->setDisabled(true);
     frame_gen_status_button->setDisabled(true);
     frame_gen_state = VideoCore::FrameGenState::Pending;
@@ -2510,6 +2518,7 @@ void MainWindow::OnEmulationStopped() {
         game_list->show();
     }
     game_list->SetFilterFocus();
+    library_hints->setVisible(true);
     tas_label->clear();
     input_subsystem->GetTas()->Stop();
     OnTasStateChanged();
@@ -4342,11 +4351,9 @@ void MainWindow::OnDataDialog() {
 }
 
 void MainWindow::OnToggleFilterBar() {
-    game_list->SetFilterVisible(ui->action_Show_Filter_Bar->isChecked());
-    if (ui->action_Show_Filter_Bar->isChecked())
-        game_list->SetFilterFocus();
-    else
-        game_list->ClearFilter();
+    // The search field always shows: its shortcut (Ctrl+F) puts the cursor in it.
+    game_list->SetFilterVisible(true);
+    game_list->SetFilterFocus();
 }
 
 void MainWindow::OnToggleStatusBar() {
@@ -5197,16 +5204,14 @@ void MainWindow::UpdateStatusBar() {
     if (dlss.evaluations > dlss_evaluations) {
         const auto mode_text = [this](Settings::NvidiaDlssQuality mode) {
             return ConfigurationShared::TranslateMapText(
-                       translator, ConfigurationShared::nvidia_dlss_quality_texts_map.at(mode))
-                .toUpper();
+                       translator, ConfigurationShared::nvidia_dlss_quality_texts_map.at(mode));
         };
         dlss_status_text =
             tr("DLSS %1 %2", "NVIDIA DLSS mode and model preset, e.g. DLSS DLAA M")
                 .arg(mode_text(dlss.mode),
                      ConfigurationShared::TranslateMapText(
                          translator,
-                         ConfigurationShared::nvidia_dlss_preset_texts_map.at(dlss.preset))
-                         .toUpper());
+                         ConfigurationShared::nvidia_dlss_preset_texts_map.at(dlss.preset)));
         if (dlss.requested != Settings::NvidiaDlssQuality::Automatic &&
             dlss.requested != dlss.mode) {
             dlss_status_text += tr(" (%1 DOESN'T FIT)", "The DLSS mode the user chose")
@@ -5263,7 +5268,7 @@ void MainWindow::UpdateGPUAccuracyButton() {
     const auto gpu_accuracy = Settings::values.gpu_accuracy.GetValue();
     const auto gpu_accuracy_text = ConfigurationShared::TranslateMapText(
         translator, ConfigurationShared::gpu_accuracy_texts_map.find(gpu_accuracy)->second);
-    gpu_accuracy_button->setText(gpu_accuracy_text.toUpper());
+    gpu_accuracy_button->setText(gpu_accuracy_text);
     gpu_accuracy_button->setChecked(gpu_accuracy != Settings::GpuAccuracy::Low);
 }
 
@@ -5272,21 +5277,21 @@ void MainWindow::UpdateDockedButton() {
     dock_status_button->setChecked(Settings::IsDockedMode());
     const QString docked_text = ConfigurationShared::TranslateMapText(
         translator, ConfigurationShared::use_docked_mode_texts_map.find(console_mode)->second);
-    dock_status_button->setText(docked_text.toUpper());
+    dock_status_button->setText(docked_text);
 }
 
 void MainWindow::UpdateAPIText() {
     const auto api = Settings::values.renderer_backend.GetValue();
     const auto renderer_status_text = ConfigurationShared::TranslateMapText(
         translator, ConfigurationShared::renderer_backend_texts_map.find(api)->second);
-    renderer_status_button->setText(renderer_status_text.toUpper());
+    renderer_status_button->setText(renderer_status_text);
 }
 
 void MainWindow::UpdateFilterText() {
     const auto filter = Settings::values.scaling_filter.GetValue();
     const auto filter_text = ConfigurationShared::TranslateMapText(
         translator, ConfigurationShared::scaling_filter_texts_map.find(filter)->second);
-    filter_status_button->setText(filter_text.toUpper());
+    filter_status_button->setText(filter_text);
 }
 
 void MainWindow::UpdateAAText() {
@@ -5294,7 +5299,7 @@ void MainWindow::UpdateAAText() {
     const auto aa_text = ConfigurationShared::TranslateMapText(
         translator, ConfigurationShared::anti_aliasing_texts_map.find(aa_mode)->second);
     aa_status_button->setText(aa_mode == Settings::AntiAliasing::None ? tr("NO AA")
-                                                                      : aa_text.toUpper());
+                                                                      : aa_text);
 }
 
 #ifdef HAS_RESHADE
@@ -5313,7 +5318,7 @@ void MainWindow::UpdatePostShaderText() {
         return;
     }
 
-    post_shader_status_button->setText(QString::fromStdString(preset).toUpper());
+    post_shader_status_button->setText(QString::fromStdString(preset));
 }
 #endif
 
@@ -5321,7 +5326,7 @@ void MainWindow::UpdateFrameGenButton() {
     const bool enabled = Settings::values.frame_gen.GetValue();
     frame_gen_status_button->setChecked(enabled);
     if (!enabled) {
-        frame_gen_status_button->setText(tr("NO FG"));
+        frame_gen_status_button->setText(tr("No FG"));
         frame_gen_status_button->setToolTip(tr("Frame generation is off."));
         return;
     }
@@ -5329,7 +5334,7 @@ void MainWindow::UpdateFrameGenButton() {
     const QString& type_text = ConfigurationShared::frame_gen_type_texts_map
                                    .find(Settings::values.frame_gen_type.GetValue())
                                    ->second;
-    const QString type = ConfigurationShared::TranslateMapText(translator, type_text).toUpper();
+    const QString type = ConfigurationShared::TranslateMapText(translator, type_text);
     const u32 target_rate = Settings::values.frame_gen_target_rate.GetValue();
     const QString mode = target_rate == 0
                              ? tr("FG %1 %2X").arg(type).arg(Settings::FrameGenMultiplier())
@@ -5404,10 +5409,10 @@ void MainWindow::UpdateVolumeUI() {
     volume_slider->setValue(volume_value);
     if (Settings::values.audio_muted) {
         volume_button->setChecked(false);
-        volume_button->setText(tr("VOLUME: MUTE"));
+        volume_button->setText(tr("Muted"));
     } else {
         volume_button->setChecked(true);
-        volume_button->setText(tr("VOLUME: %1%", "Volume percentage (e.g. 50%)").arg(volume_value));
+        volume_button->setText(tr("%1%", "Volume percentage (e.g. 50%)").arg(volume_value));
     }
 }
 

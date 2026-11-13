@@ -25,7 +25,13 @@ public:
     QSize sizeHint(const QStyleOptionViewItem& option, const QModelIndex& index) const override;
     void setSize(const QSize& newSize, const QSize& contentSize, const int padding, const int columns);
 
+    /// Height of the title and play time under a grid cover.
+    static constexpr int gridTextHeight = 48;
+
 private:
+    void paintGridCard(QPainter* painter, const QStyleOptionViewItem& option,
+                       const QModelIndex& index) const;
+
     static constexpr int cardMargin = 8;
 
     QSize m_size;

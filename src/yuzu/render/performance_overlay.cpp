@@ -49,10 +49,10 @@ constexpr float SpikeRatio = 1.2f;
 
 constexpr QRgb TextColor = qRgb(0xFA, 0xFA, 0xFA);
 constexpr QRgb MutedColor = qRgb(0xA1, 0xA1, 0xAA);
-constexpr QRgb DimColor = qRgb(0x71, 0x71, 0x7A);
+constexpr QRgb DimColor = qRgb(0x80, 0x80, 0x89);
 constexpr QRgb AccentColor = qRgb(0xF8, 0x71, 0x71);
 constexpr QRgb SpikeColor = qRgb(0xFB, 0xBF, 0x24);
-constexpr QRgb BackgroundColor = qRgba(0x0E, 0x0E, 0x10, 190);
+constexpr QRgb BackgroundColor = qRgba(0x18, 0x18, 0x1B, 200);
 constexpr QRgb BorderColor = qRgba(0xDC, 0x26, 0x26, 70);
 constexpr QRgb LineColor = qRgba(0xFA, 0xFA, 0xFA, 217);
 constexpr QRgb AxisColor = qRgba(255, 255, 255, 46);

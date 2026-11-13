@@ -211,8 +211,8 @@ add_executable(yuzu
     util/clickable_label.h
     util/controller_navigation.cpp
     util/controller_navigation.h
-    util/nav_sidebar.cpp
-    util/nav_sidebar.h
+    util/glyphs.cpp
+    util/glyphs.h
     util/limitable_input_dialog.cpp
     util/limitable_input_dialog.h
     util/overlay_dialog.cpp

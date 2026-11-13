@@ -72,7 +72,6 @@ class ConfigurePostProcessing;
 enum class GameListOpenTarget;
 enum class DumpRomFSTarget;
 class GameListPlaceholder;
-class NavSidebar;
 
 class QtAmiiboSettingsDialog;
 class QtControllerSelectorDialog;
@@ -553,7 +552,7 @@ private:
 #endif
 
     GameListPlaceholder* game_list_placeholder = nullptr;
-    NavSidebar* nav_sidebar = nullptr;
+    QWidget* library_hints = nullptr; ///< The status bar's library shortcuts.
 
     std::vector<VkDeviceInfo::Record> vk_device_records;
 

@@ -26,7 +26,7 @@ GameGrid::GameGrid(QWidget* parent) : QListView{parent} {
     setEditTriggers(QAbstractItemView::NoEditTriggers);
     setContextMenuPolicy(Qt::CustomContextMenu);
 
-    setSpacing(10);
+    setSpacing(16);
     setWordWrap(true);
     setTextElideMode(Qt::ElideRight);
     setFlow(QListView::LeftToRight);
@@ -60,23 +60,13 @@ void GameGrid::UpdateIconSize() {
     int heightMargin = 0;
     int widthMargin = 80;
 
-    if (UISettings::values.show_game_name) {
-        switch (icon_size) {
-        case 128:
-            heightMargin = 65;
-            break;
-        case 0:
-            widthMargin = 120;
-            heightMargin = 120;
-            break;
-        case 64:
-            heightMargin = 77;
-            break;
-        case 32:
-        case 256:
-            heightMargin = 81;
-            break;
-        }
+    if (icon_size > 0) {
+        // Covers fill the card; the title and play time sit under them.
+        widthMargin = 8;
+        heightMargin = 8 + (UISettings::values.show_game_name ? GameCard::gridTextHeight : 8);
+    } else if (UISettings::values.show_game_name) {
+        widthMargin = 120;
+        heightMargin = 120;
     } else {
         widthMargin = 24;
         heightMargin = 24;

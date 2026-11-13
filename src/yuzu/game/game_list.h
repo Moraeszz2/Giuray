@@ -14,6 +14,8 @@
 #include <QString>
 #include <QVBoxLayout>
 #include <QVector>
+
+#include <optional>
 #include <QWidget>
 
 #include "common/common_types.h"
@@ -24,6 +26,8 @@
 #include "qt_common/util/game.h"
 
 class QMenu;
+class QToolButton;
+class QListView;
 class QVariantAnimation;
 
 class GameCard;
@@ -140,7 +144,14 @@ private slots:
 
 private:
     void SetupViews();
-    void SelectFirstCarouselGame();
+    /// The grid or the carousel, whichever shows (the flat views share the hero and the tabs).
+    QListView* FlatView() const;
+    void SetupLibraryHome();
+    void ApplyFlatFilter();
+    void UpdateTabCounts();
+    void SortFlat();
+    void SelectMostRecent();
+    void UpdateSection();
     void SetupScrollAnimation();
     bool eventFilter(QObject* obj, QEvent* event) override;
     void changeEvent(QEvent*) override;
@@ -169,6 +180,16 @@ private:
     GameGrid* grid_view = nullptr;
     GameCarousel* carousel_view = nullptr;
     GameHero* hero = nullptr;
+    QWidget* hero_box = nullptr;
+    QWidget* section = nullptr;
+    QLabel* section_title = nullptr;
+    QLabel* section_count = nullptr;
+    QToolButton* sort_button = nullptr;
+    enum class FlatSort { Recent, Name, PlayTime, Size };
+    FlatSort flat_sort = FlatSort::Recent;
+    QPersistentModelIndex most_recent;
+    /// Where the next context menu opens, when it is not where the view was clicked.
+    std::optional<QPoint> menu_global_position;
     GameListModel* item_model = nullptr;
     Settings::GameListMode game_list_mode;
 

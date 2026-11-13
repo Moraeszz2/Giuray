@@ -2,13 +2,13 @@
 
 QDialog#OverlayDialog,
 QStackedWidget#stackedDialog {
-    background: rgba(9, 9, 11, 0.72);
+    background: rgba(12, 12, 14, 0.72);
 }
 
 QWidget#contentDialog,
 QWidget#contentRichDialog {
-    background: #161618;
-    border: 1px solid #29292E;
+    background: #1F1F23;
+    border: 1px solid #303036;
     border-radius: 12px;
     margin: 0px;
 }
@@ -16,7 +16,7 @@ QWidget#contentRichDialog {
 QWidget#buttonsDialog,
 QWidget#buttonsRichDialog {
     margin: 0px;
-    border-top: 1px solid #29292E;
+    border-top: 1px solid #303036;
 }
 
 QWidget#contentDialog QLabel {
@@ -24,7 +24,7 @@ QWidget#contentDialog QLabel {
 }
 
 QWidget#contentDialog QProgressBar#overlayBusy {
-    background-color: #202024;
+    background-color: #27272A;
     border: none;
     border-radius: 2px;
 }
@@ -67,52 +67,19 @@ QDialog#OverlayDialog QPushButton:pressed {
 }
 
 QStackedWidget#topOSK {
-    background: rgba(9, 9, 11, 0.85);
+    background: rgba(12, 12, 14, 0.85);
 }
 
 QStackedWidget#bottomOSK {
-    background: #161618;
+    background: #1F1F23;
 }
 
-/* ---------- Console layout: navigation rail, carousel panel, settings categories ---------- */
-
-QFrame#NavSidebar {
-    background-color: #0E0E10;
-    border: none;
-    border-right: 1px solid #202024;
-}
-
-QFrame#NavSidebar QToolButton#NavButton {
-    color: #A1A1AA;
-    background: transparent;
-    border: none;
-    border-radius: 12px;
-    padding: 10px 2px 8px 2px;
-    font-size: 11px;
-}
-
-QFrame#NavSidebar QToolButton#NavButton:hover {
-    color: #FAFAFA;
-    background-color: #202024;
-}
-
-QFrame#NavSidebar QToolButton#NavButton:pressed {
-    background-color: #29292E;
-}
-
-QFrame#NavSidebar QToolButton#NavButton[active="true"] {
-    color: #FAFAFA;
-    background-color: rgba(220, 38, 38, 0.18);
-}
-
-QFrame#NavSidebar QToolButton#NavButton:disabled {
-    color: #52525B;
-}
+/* ---------- Carousel panel and settings categories ---------- */
 
 QFrame#GameHero {
-    background-color: #0E0E10;
+    background-color: #18181B;
     border: none;
-    border-top: 1px solid #202024;
+    border-top: 1px solid #27272A;
 }
 
 QFrame#GameHero QLabel#GameHeroTitle {
@@ -160,11 +127,375 @@ QTreeWidget#selectorList::item {
 QListWidget#selectorList::item:hover,
 QTreeWidget#selectorList::item:hover {
     color: #FAFAFA;
-    background-color: #202024;
+    background-color: #27272A;
 }
 
 QListWidget#selectorList::item:selected,
 QTreeWidget#selectorList::item:selected {
     color: #FAFAFA;
     background-color: rgba(220, 38, 38, 0.22);
+}
+
+/* ---------- Desktop layout: menus, library header, list header, status bar ---------- */
+
+QMenuBar {
+    min-height: 32px;
+    border-bottom: 1px solid #27272A;
+}
+
+QMenuBar::item {
+    padding: 6px 10px;
+    border-radius: 4px;
+}
+
+QWidget#LibraryBar {
+    border-bottom: 1px solid #27272A;
+}
+
+QWidget#LibraryBar QLabel#LibraryTitle {
+    font-size: 20px;
+    font-weight: 600;
+}
+
+QWidget#LibraryBar QLineEdit#LibrarySearch {
+    min-width: 0px;
+    min-height: 18px;
+    padding: 6px 8px;
+    background-color: #1F1F23;
+    border: 1px solid #303036;
+    border-radius: 6px;
+}
+
+QWidget#LibraryBar QLineEdit#LibrarySearch:hover {
+    border-color: #3F3F46;
+}
+
+/* The field has focus from launch: a neutral ring, red stays for actions. */
+QWidget#LibraryBar QLineEdit#LibrarySearch:focus {
+    border-color: #52525B;
+    background-color: #18181B;
+}
+
+QWidget#LibraryBar QToolButton {
+    border: 1px solid transparent;
+    border-radius: 6px;
+}
+
+QWidget#LibraryBar QToolButton:hover {
+    background-color: #27272A;
+    border-color: #303036;
+    color: #FAFAFA;
+}
+
+QTreeView#GameTree QHeaderView::section {
+    min-height: 32px;
+    padding: 0px 12px;
+    font-weight: 500;
+    border-bottom: 1px solid #27272A;
+}
+
+QTreeView#GameTree QHeaderView::section:first {
+    padding-left: 24px;
+}
+
+QTreeView#GameTree::item {
+    border-bottom: 1px solid #232327;
+}
+
+QStatusBar {
+    min-height: 28px;
+    padding: 0px 8px;
+}
+
+QStatusBar QPushButton#TogglableStatusBarButton,
+QStatusBar QPushButton#RendererStatusBarButton,
+QStatusBar QPushButton#GPUStatusBarButton,
+QStatusBar QPushButton#DockingStatusBarButton,
+QStatusBar QPushButton#RefreshButton,
+QStatusBar QPushButton#MultiplayerStatusButton {
+    font-weight: 500;
+    padding: 3px 8px;
+}
+
+/* ---------- Library home: tabs, search, view switcher, hero, section, status chips ---------- */
+
+QWidget#LibraryBar {
+    min-height: 72px;
+}
+
+QWidget#LibraryBar QLabel#LibraryTitle {
+    font-size: 26px;
+    font-weight: 600;
+    color: #FAFAFA;
+}
+
+QWidget#LibraryBar QToolButton#LibraryTab {
+    color: #A1A1AA;
+    background: transparent;
+    border: none;
+    border-radius: 18px;
+    padding: 8px 16px;
+    font-size: 14px;
+}
+
+QWidget#LibraryBar QToolButton#LibraryTab:hover {
+    color: #FAFAFA;
+    background-color: #27272A;
+}
+
+QWidget#LibraryBar QToolButton#LibraryTab:checked {
+    color: #18181B;
+    background-color: #FAFAFA;
+    font-weight: 600;
+}
+
+QWidget#LibraryBar QLineEdit#LibrarySearch {
+    min-height: 22px;
+    padding: 6px 12px;
+    border-radius: 18px;
+    background-color: #1F1F23;
+    border: 1px solid #303036;
+    font-size: 14px;
+}
+
+QLabel#LibrarySearchShortcut {
+    color: #808089;
+    background: transparent;
+    border: 1px solid #3F3F46;
+    border-radius: 4px;
+    padding: 1px 6px;
+    font-size: 11px;
+}
+
+QWidget#LibraryBar QToolButton#LibraryIconButton {
+    min-width: 34px;
+    max-width: 34px;
+    min-height: 34px;
+    max-height: 34px;
+    padding: 0px;
+    border: 1px solid #303036;
+    border-radius: 18px;
+    background: transparent;
+}
+
+QWidget#LibraryBar QToolButton#LibraryIconButton::menu-indicator {
+    image: none;
+    width: 0px;
+}
+
+QWidget#LibraryBar QToolButton#LibraryIconButton:hover {
+    background-color: #27272A;
+}
+
+QWidget#ViewSwitch {
+    border: 1px solid #303036;
+    border-radius: 18px;
+    background: transparent;
+}
+
+QWidget#ViewSwitch QToolButton#ViewSwitchButton {
+    min-width: 40px;
+    min-height: 30px;
+    padding: 0px;
+    border: none;
+    border-radius: 15px;
+    background: transparent;
+}
+
+QWidget#ViewSwitch QToolButton#ViewSwitchButton:hover {
+    background-color: #27272A;
+}
+
+QWidget#ViewSwitch QToolButton#ViewSwitchButton:checked {
+    background-color: #303036;
+}
+
+QWidget#LibraryBar QPushButton[primary="true"] {
+    min-height: 22px;
+    padding: 6px 20px;
+    border-radius: 18px;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+QFrame#GameHero {
+    background-color: #1F1F23;
+    border: 1px solid #27272A;
+    border-radius: 14px;
+}
+
+QFrame#GameHero QLabel {
+    background: transparent;
+}
+
+QFrame#GameHero QLabel#GameHeroEyebrow {
+    color: #A1A1AA;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 1px;
+}
+
+QFrame#GameHero QLabel#GameHeroTitle {
+    color: #FAFAFA;
+    font-size: 30px;
+    font-weight: 600;
+}
+
+QFrame#GameHero QLabel#GameHeroBadge {
+    color: #E4E4E7;
+    border: 1px solid #3F3F46;
+    border-radius: 4px;
+    padding: 2px 8px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+QFrame#GameHero QLabel#GameHeroBadge[switch2="true"] {
+    color: #FFFFFF;
+    background-color: #DC2626;
+    border-color: #DC2626;
+}
+
+QFrame#GameHero QLabel#GameHeroDetails {
+    color: #A1A1AA;
+    font-size: 15px;
+}
+
+QFrame#GameHero QLabel#GameHeroChip {
+    color: #E4E4E7;
+    background-color: #27272A;
+    border: 1px solid #303036;
+    border-radius: 6px;
+    padding: 5px 10px;
+    font-size: 13px;
+}
+
+QFrame#GameHero QLabel#GameHeroChip[replaced="true"] {
+    color: #808089;
+    background: transparent;
+    border: 1px dashed #3F3F46;
+}
+
+QFrame#GameHero QLabel#GameHeroChipMuted {
+    color: #808089;
+    font-size: 13px;
+    padding: 5px 4px;
+}
+
+QFrame#GameHero QPushButton {
+    min-height: 24px;
+    padding: 8px 22px;
+    border-radius: 22px;
+    font-size: 15px;
+    font-weight: 600;
+    background-color: transparent;
+    border: 1px solid #3F3F46;
+    color: #E4E4E7;
+}
+
+QFrame#GameHero QPushButton:hover {
+    background-color: #27272A;
+}
+
+QFrame#GameHero QPushButton#GameHeroPlay {
+    padding: 8px 28px;
+    background-color: #DC2626;
+    border-color: #DC2626;
+    color: #FFFFFF;
+}
+
+QFrame#GameHero QPushButton#GameHeroPlay:hover {
+    background-color: #EF4444;
+    border-color: #EF4444;
+}
+
+QFrame#GameHero QPushButton#GameHeroPlay:pressed {
+    background-color: #B91C1C;
+    border-color: #B91C1C;
+}
+
+QFrame#GameHero QToolButton#GameHeroRound {
+    min-width: 40px;
+    max-width: 40px;
+    min-height: 40px;
+    max-height: 40px;
+    padding: 0px;
+    border: 1px solid #3F3F46;
+    border-radius: 21px;
+    background: transparent;
+}
+
+QFrame#GameHero QToolButton#GameHeroRound:hover {
+    background-color: #27272A;
+}
+
+QWidget#LibrarySection QLabel#LibrarySectionTitle {
+    color: #FAFAFA;
+    font-size: 20px;
+    font-weight: 600;
+}
+
+QWidget#LibrarySection QLabel#LibrarySectionCount {
+    color: #808089;
+    font-size: 15px;
+}
+
+QWidget#LibrarySection QToolButton#LibrarySort {
+    color: #A1A1AA;
+    background: transparent;
+    border: none;
+    padding: 4px 20px 4px 8px;
+    font-size: 14px;
+}
+
+QWidget#LibrarySection QToolButton#LibrarySort:hover {
+    color: #FAFAFA;
+}
+
+QListView#GameGrid {
+    padding: 0px 24px;
+}
+
+QStatusBar {
+    min-height: 40px;
+    padding: 0px 16px;
+}
+
+QStatusBar QPushButton#TogglableStatusBarButton,
+QStatusBar QPushButton#RendererStatusBarButton,
+QStatusBar QPushButton#GPUStatusBarButton,
+QStatusBar QPushButton#DockingStatusBarButton,
+QStatusBar QPushButton#RefreshButton {
+    border: 1px solid #303036;
+    border-radius: 6px;
+    padding: 3px 10px;
+    margin: 0px 2px;
+    font-size: 13px;
+}
+
+QStatusBar QPushButton#MultiplayerStatusButton {
+    border: 1px solid #303036;
+    border-radius: 6px;
+    padding: 3px 10px;
+    font-size: 13px;
+}
+
+QWidget#StatusHints {
+    background: transparent;
+}
+
+QStatusBar QLabel#StatusKey {
+    color: #E4E4E7;
+    border: 1px solid #52525B;
+    border-radius: 9px;
+    padding: 0px 6px;
+    min-width: 6px;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+QStatusBar QLabel#StatusHint {
+    color: #A1A1AA;
+    font-size: 13px;
+    padding: 0px;
 }

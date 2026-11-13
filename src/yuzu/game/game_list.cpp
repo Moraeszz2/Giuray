@@ -4,6 +4,8 @@
 // SPDX-FileCopyrightText: 2015 Citra Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include <array>
+
 #include <QAbstractItemView>
 #include <QApplication>
 #include <QDir>
@@ -12,6 +14,7 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QLabel>
 #include <QList>
 #include <QListView>
 #include <QMenu>
@@ -25,6 +28,7 @@
 #include "common/common_types.h"
 #include "common/fs/fs_util.h"
 #include "core/core.h"
+#include "core/launch_timestamp_cache.h"
 #include "core/file_sys/nup_writer.h"
 #ifdef GIURAY_NX_TOOLS
 #include "yuzu/nx_tools.h"
@@ -37,6 +41,7 @@
 #include "qt_common/qt_common.h"
 #include "qt_common/util/game.h"
 #include "yuzu/game/carousel.h"
+#include "yuzu/game/common.h"
 #include "yuzu/game/game_grid.h"
 #include "yuzu/game/game_hero.h"
 #include "yuzu/game/game_list.h"
@@ -65,6 +70,7 @@ GameList::GameList(FileSys::VirtualFilesystem vfs_, FileSys::ManualContentProvid
 
     search_field = new GameListSearchField(this);
     layout->addWidget(search_field);
+    SetupLibraryHome();
 
     controller_navigation = new ControllerNavigation(system.HIDCore(), this);
 
@@ -131,40 +137,231 @@ void GameList::SetupViews() {
     tree_view->SetModel(item_model);
     grid_view->SetModel(item_model);
     carousel_view->SetModel(item_model);
+}
 
+namespace {
+
+constexpr int LastPlayedRole = Qt::UserRole + 40;
+
+bool IsGame(const QStandardItem* item) {
+    return item != nullptr &&
+           item->data(GameListItem::TypeRole).value<GameListItemType>() == GameListItemType::Game;
+}
+
+bool TabMatches(const QStandardItem* item, GameListSearchField::Tab tab) {
+    const u64 program_id = item->data(GameListItemPath::ProgramIdRole).toULongLong();
+    switch (tab) {
+    case GameListSearchField::Tab::All:
+        return true;
+    case GameListSearchField::Tab::Switch2:
+        return (program_id >> 56) == 0x04;
+    case GameListSearchField::Tab::Switch:
+        return (program_id >> 56) != 0x04;
+    case GameListSearchField::Tab::Favorites:
+        return UISettings::values.favorited_ids.contains(program_id);
+    case GameListSearchField::Tab::Recent:
+        return Core::LaunchTimestampCache::GetLaunchTimestamp(program_id) > 0;
+    }
+    return true;
+}
+
+} // namespace
+
+QListView* GameList::FlatView() const {
+    return game_list_mode == Settings::GameListMode::CarouselView
+               ? static_cast<QListView*>(carousel_view)
+               : static_cast<QListView*>(grid_view);
+}
+
+void GameList::SetupLibraryHome() {
     hero = new GameHero(this);
-    hero->setVisible(false);
-    connect(carousel_view->selectionModel(), &QItemSelectionModel::currentChanged, hero,
-            [this](const QModelIndex& current) { hero->SetIndex(current); });
-    connect(item_model, &QAbstractItemModel::modelReset, hero, [this] { hero->SetIndex({}); });
-    connect(hero, &GameHero::PlayRequested, this,
-            [this] { ValidateEntry(carousel_view->currentIndex()); });
+    hero_box = new QWidget(this);
+    auto* const hero_layout = new QVBoxLayout(hero_box);
+    hero_layout->setContentsMargins(32, 24, 32, 8);
+    hero_layout->addWidget(hero);
+    hero_box->setVisible(false);
+
+    // "All games  12" and the sort order, over the grid.
+    section = new QWidget(this);
+    section->setObjectName(QStringLiteral("LibrarySection"));
+    section_title = new QLabel(section);
+    section_title->setObjectName(QStringLiteral("LibrarySectionTitle"));
+    section_count = new QLabel(section);
+    section_count->setObjectName(QStringLiteral("LibrarySectionCount"));
+    sort_button = new QToolButton(section);
+    sort_button->setObjectName(QStringLiteral("LibrarySort"));
+    sort_button->setPopupMode(QToolButton::InstantPopup);
+    sort_button->setFocusPolicy(Qt::NoFocus);
+    auto* const sort_menu = new QMenu(sort_button);
+    const std::array<std::pair<FlatSort, QString>, 4> sorts{{
+        {FlatSort::Recent, tr("Recently played")},
+        {FlatSort::Name, tr("Name")},
+        {FlatSort::PlayTime, tr("Play time")},
+        {FlatSort::Size, tr("Size")},
+    }};
+    for (const auto& [sort, name] : sorts) {
+        QAction* const action = sort_menu->addAction(name);
+        connect(action, &QAction::triggered, this, [this, sort] {
+            flat_sort = sort;
+            SortFlat();
+            ApplyFlatFilter();
+            UpdateSection();
+        });
+    }
+    sort_button->setMenu(sort_menu);
+    auto* const section_layout = new QHBoxLayout(section);
+    section_layout->setContentsMargins(32, 16, 32, 8);
+    section_layout->setSpacing(12);
+    section_layout->addWidget(section_title);
+    section_layout->addWidget(section_count);
+    section_layout->addStretch();
+    section_layout->addWidget(sort_button);
+    section->setVisible(false);
+
+    for (QListView* view : {static_cast<QListView*>(grid_view),
+                            static_cast<QListView*>(carousel_view)}) {
+        connect(view->selectionModel(), &QItemSelectionModel::currentChanged, hero,
+                [this](const QModelIndex& current) {
+                    hero->SetIndex(current, current.isValid() &&
+                                                current.sibling(current.row(), 0) == most_recent);
+                });
+    }
+    connect(item_model, &QAbstractItemModel::modelReset, hero, [this] { hero->SetIndex({}, false); });
+    connect(hero, &GameHero::PlayRequested, this, [this] { ValidateEntry(hero->Index()); });
     connect(hero, &GameHero::PropertiesRequested, this, [this] {
-        const QModelIndex current = carousel_view->currentIndex();
-        if (!current.isValid()) {
-            return;
-        }
-        const QString path =
-            current.sibling(current.row(), 0).data(GameListItemPath::FullPathRole).toString();
+        const QString path = hero->Index().data(GameListItemPath::FullPathRole).toString();
         if (!path.isEmpty()) {
             emit OpenPerGameGeneralRequested(path.toStdString());
         }
     });
-}
-
-void GameList::SelectFirstCarouselGame() {
-    if (carousel_view->currentIndex().isValid()) {
-        return;
-    }
-    for (int row = 0; row < item_model->rowCount(); ++row) {
-        const QModelIndex index = item_model->index(row, 0);
-        if (!carousel_view->isRowHidden(row) &&
-            index.data(GameListItem::TypeRole).value<GameListItemType>() ==
-                GameListItemType::Game) {
-            carousel_view->setCurrentIndex(index);
+    connect(hero, &GameHero::FavoriteToggled, this, [this] {
+        const QModelIndex index = hero->Index();
+        if (!index.isValid()) {
             return;
         }
+        ToggleFavorite(index.data(GameListItemPath::ProgramIdRole).toULongLong());
+        UpdateTabCounts();
+        hero->SetIndex(index, index == most_recent);
+        FlatView()->viewport()->update();
+    });
+    connect(hero, &GameHero::MoreRequested, this, [this](const QPoint& global) {
+        const QModelIndex index = hero->Index();
+        if (!index.isValid() || m_currentView != FlatView()) {
+            return;
+        }
+        menu_global_position = global;
+        PopupContextMenu(FlatView()->visualRect(index).center());
+        menu_global_position.reset();
+    });
+    connect(search_field, &GameListSearchField::TabChanged, this, [this] {
+        ApplyFlatFilter();
+        UpdateSection();
+        if (!hero->Index().isValid() || FlatView()->isRowHidden(hero->Index().row())) {
+            SelectMostRecent();
+        }
+    });
+}
+
+void GameList::ApplyFlatFilter() {
+    if (m_isTreeMode) {
+        return;
     }
+    const QString text = search_field->filterText().toLower();
+    const auto tab = search_field->CurrentTab();
+    int shown = 0;
+    for (int row = 0; row < item_model->rowCount(); ++row) {
+        const QStandardItem* item = item_model->item(row, 0);
+        const bool show = IsGame(item) && Yuzu::FilterMatches(text, item) && TabMatches(item, tab);
+        grid_view->setRowHidden(row, !show);
+        carousel_view->setRowHidden(row, !show);
+        shown += show ? 1 : 0;
+    }
+    section_count->setText(QString::number(shown));
+}
+
+void GameList::UpdateTabCounts() {
+    std::array<int, 5> counts{};
+    for (int row = 0; row < item_model->rowCount(); ++row) {
+        const QStandardItem* item = item_model->item(row, 0);
+        if (!IsGame(item)) {
+            continue;
+        }
+        for (size_t tab = 0; tab < counts.size(); ++tab) {
+            counts[tab] += TabMatches(item, static_cast<GameListSearchField::Tab>(tab)) ? 1 : 0;
+        }
+    }
+    search_field->SetTabCounts(counts);
+}
+
+void GameList::SortFlat() {
+    if (m_isTreeMode) {
+        return;
+    }
+    switch (flat_sort) {
+    case FlatSort::Recent:
+        for (int row = 0; row < item_model->rowCount(); ++row) {
+            QStandardItem* const item = item_model->item(row, 0);
+            if (item != nullptr) {
+                const u64 id = item->data(GameListItemPath::ProgramIdRole).toULongLong();
+                item->setData(qlonglong{Core::LaunchTimestampCache::GetLaunchTimestamp(id)},
+                              LastPlayedRole);
+            }
+        }
+        item_model->setSortRole(LastPlayedRole);
+        item_model->sort(0, Qt::DescendingOrder);
+        item_model->setSortRole(GameListItem::SortRole);
+        break;
+    case FlatSort::Name:
+        item_model->sort(0, Qt::AscendingOrder);
+        break;
+    case FlatSort::PlayTime:
+        item_model->sort(GameListModel::COLUMN_PLAY_TIME, Qt::DescendingOrder);
+        break;
+    case FlatSort::Size:
+        item_model->sort(GameListModel::COLUMN_SIZE, Qt::DescendingOrder);
+        break;
+    }
+}
+
+void GameList::SelectMostRecent() {
+    if (m_isTreeMode) {
+        return;
+    }
+    QModelIndex best;
+    QModelIndex first;
+    s64 best_time = 0;
+    for (int row = 0; row < item_model->rowCount(); ++row) {
+        const QStandardItem* item = item_model->item(row, 0);
+        if (!IsGame(item) || FlatView()->isRowHidden(row)) {
+            continue;
+        }
+        const QModelIndex index = item_model->index(row, 0);
+        if (!first.isValid()) {
+            first = index;
+        }
+        const s64 time = Core::LaunchTimestampCache::GetLaunchTimestamp(
+            item->data(GameListItemPath::ProgramIdRole).toULongLong());
+        if (time > best_time) {
+            best_time = time;
+            best = index;
+        }
+    }
+    most_recent = best;
+    const QModelIndex target = best.isValid() ? best : first;
+    if (target.isValid()) {
+        FlatView()->setCurrentIndex(target);
+        FlatView()->scrollTo(target);
+    }
+    hero->SetIndex(target, target.isValid() && target == best);
+}
+
+void GameList::UpdateSection() {
+    const std::array<QString, 5> titles{tr("All games"), tr("Switch 2 games"), tr("Switch games"),
+                                        tr("Favorites"), tr("Recently played")};
+    section_title->setText(titles[static_cast<size_t>(search_field->CurrentTab())]);
+    const std::array<QString, 4> sorts{tr("Recently played"), tr("Name"), tr("Play time"),
+                                       tr("Size")};
+    sort_button->setText(tr("Sort: %1").arg(sorts[static_cast<size_t>(flat_sort)]));
 }
 
 QString GameList::GetLastFilterResultItem() const {
@@ -276,16 +473,28 @@ void GameList::ResetViewMode() {
     // until that finishes, as OnPopulate does for every other populate.
     m_currentView->setEnabled(!m_populating);
     // Under the library bar.
-    layout->insertWidget(1, m_currentView, 1);
+    layout->addWidget(m_currentView, 1);
 
-    // The carousel shows the selected game's panel under it.
-    const bool carousel = mode == Settings::GameListMode::CarouselView;
-    layout->removeWidget(hero);
-    if (carousel) {
-        layout->insertWidget(2, hero);
-        SelectFirstCarouselGame();
+    // The grid and the carousel show the game played last (or the selected one) above them;
+    // the grid also its section title and sort order.
+    const bool flat = mode != Settings::GameListMode::TreeView;
+    const bool grid = mode == Settings::GameListMode::GridView;
+    layout->removeWidget(hero_box);
+    layout->removeWidget(section);
+    if (flat) {
+        layout->insertWidget(1, hero_box);
+        if (grid) {
+            layout->insertWidget(2, section);
+        }
     }
-    hero->setVisible(carousel);
+    hero_box->setVisible(flat);
+    section->setVisible(grid);
+    search_field->SetTabsVisible(flat);
+    if (flat && !m_populating) {
+        ApplyFlatFilter();
+        SelectMostRecent();
+    }
+    UpdateSection();
 
     auto view = m_currentView->viewport();
     view->installEventFilter(this);
@@ -318,7 +527,7 @@ void GameList::OnTextChanged(const QString& new_text) {
     if (m_isTreeMode) {
         tree_view->ApplyFilter(edit_filter_text, item_model);
     } else {
-        grid_view->ApplyFilter(edit_filter_text, item_model);
+        ApplyFlatFilter();
     }
 }
 
@@ -329,9 +538,6 @@ void GameList::OnFilterCloseClicked() {
 void GameList::OnPopulatingCompleted(const QStringList& watch_list) {
     emit ShowList(!item_model->IsEmpty());
 
-    if (game_list_mode == Settings::GameListMode::CarouselView) {
-        SelectFirstCarouselGame();
-    }
 
     // favorites row
     if (m_isTreeMode) {
@@ -416,6 +622,14 @@ void GameList::OnPopulatingCompleted(const QStringList& watch_list) {
     // text the user still has typed to them.
     if (!search_field->filterText().isEmpty()) {
         OnTextChanged(search_field->filterText());
+    }
+
+    if (!m_isTreeMode) {
+        UpdateTabCounts();
+        SortFlat();
+        ApplyFlatFilter();
+        SelectMostRecent();
+        UpdateSection();
     }
 
     emit PopulatingCompleted();
@@ -528,7 +742,8 @@ void GameList::PopupContextMenu(const QPoint& menu_location) {
     default:
         break;
     }
-    context_menu.exec(m_currentView->viewport()->mapToGlobal(menu_location));
+    context_menu.exec(menu_global_position.value_or(
+        m_currentView->viewport()->mapToGlobal(menu_location)));
 }
 
 void GameList::AddGamePopup(QMenu& context_menu, u64 program_id, const std::string& path) {

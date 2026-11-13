@@ -82,7 +82,7 @@ void MultiplayerOverlay::paintEvent(QPaintEvent*) {
     painter.setRenderHint(QPainter::Antialiasing);
 
     // Tags use the theme's window color, translucent, with the accent for the marker dot.
-    const QColor tag_background{0x0E, 0x0E, 0x10, 200};
+    const QColor tag_background{0x18, 0x18, 0x1B, 210};
     const QColor tag_text{0xFA, 0xFA, 0xFA};
     const QColor accent{0xEF, 0x44, 0x44};
 

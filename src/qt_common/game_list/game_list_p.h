@@ -80,6 +80,9 @@ public:
     static constexpr int FullPathRole = SortRole + 2;
     static constexpr int ProgramIdRole = SortRole + 3;
     static constexpr int FileTypeRole = SortRole + 4;
+    /// The game's icon at its own resolution (at most 512 px a side), for covers drawn larger
+    /// than the list icon.
+    static constexpr int CoverRole = SortRole + 5;
 
     GameListItemPath() = default;
     GameListItemPath(const QString& game_path, const std::vector<u8>& picture_data,
@@ -118,6 +121,12 @@ public:
         if (!picture.loadFromData(picture_data.data(), static_cast<u32>(picture_data.size()))) {
             picture = GetDefaultIcon(size);
         }
+        constexpr int MaxCoverSize = 512;
+        setData(picture.width() > MaxCoverSize || picture.height() > MaxCoverSize
+                    ? picture.scaled(MaxCoverSize, MaxCoverSize, Qt::KeepAspectRatio,
+                                     Qt::SmoothTransformation)
+                    : picture,
+                CoverRole);
         picture = picture.scaled(size, size, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
 
         setData(picture, Qt::DecorationRole);

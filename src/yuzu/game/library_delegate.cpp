@@ -2,15 +2,20 @@
 
 #include <algorithm>
 
+#include <QAbstractItemView>
 #include <QApplication>
 #include <QFileInfo>
 #include <QHash>
+#include <QHelpEvent>
 #include <QImage>
 #include <QPainter>
 #include <QPainterPath>
+#include <QRegularExpression>
+#include <QToolTip>
 
 #include "qt_common/config/uisettings.h"
 #include "qt_common/game_list/game_list_p.h"
+#include "qt_common/game_list/model.h"
 #include "yuzu/game/library_delegate.h"
 
 namespace {
@@ -139,7 +144,46 @@ void PaintGame(QPainter* painter, const QStyleOptionViewItem& option, const QMod
     painter->restore();
 }
 
+/// The add-ons column in one line: the update's version and how many other add-ons there are.
+QString AddOnsSummary(const QString& text) {
+    const QStringList lines = text.split(QLatin1Char('\n'), Qt::SkipEmptyParts);
+    static const QRegularExpression update{QStringLiteral(R"(^Update \(([^)]+)\))")};
+    QString version;
+    int others = 0;
+    for (const QString& line : lines) {
+        const auto match = update.match(line.trimmed());
+        if (match.hasMatch()) {
+            version = match.captured(1);
+        } else {
+            ++others;
+        }
+    }
+    QStringList parts;
+    if (!version.isEmpty()) {
+        parts << LibraryDelegate::tr("Update %1").arg(version);
+    }
+    if (others > 0) {
+        parts << (others == 1 ? LibraryDelegate::tr("1 add-on")
+                              : LibraryDelegate::tr("%1 add-ons").arg(others));
+    }
+    return parts.join(QStringLiteral("  ·  "));
+}
+
 } // Anonymous namespace
+
+bool LibraryDelegate::helpEvent(QHelpEvent* event, QAbstractItemView* view,
+                                const QStyleOptionViewItem& option, const QModelIndex& index) {
+    if (event->type() == QEvent::ToolTip && index.column() == GameListModel::COLUMN_ADD_ONS &&
+        index.sibling(index.row(), 0).data(GameListItem::TypeRole).value<GameListItemType>() ==
+            GameListItemType::Game) {
+        const QString full = index.data(Qt::DisplayRole).toString();
+        if (!full.isEmpty()) {
+            QToolTip::showText(event->globalPos(), full, view);
+            return true;
+        }
+    }
+    return QStyledItemDelegate::helpEvent(event, view, option, index);
+}
 
 void LibraryDelegate::paint(QPainter* painter, const QStyleOptionViewItem& option,
                             const QModelIndex& index) const {
@@ -162,6 +206,19 @@ void LibraryDelegate::paint(QPainter* painter, const QStyleOptionViewItem& optio
         detail.font.setPixelSize(12);
         detail.palette.setColor(QPalette::Text, Mix(option.palette.color(QPalette::Text), 165));
         detail.displayAlignment = Qt::AlignVCenter | Qt::AlignLeft;
+        if (index.column() == GameListModel::COLUMN_ADD_ONS) {
+            // One line, so every game row keeps its height; the full list is the tooltip.
+            QStyleOptionViewItem summary = detail;
+            initStyleOption(&summary, index);
+            // From the model: the style option's text has its line breaks turned into
+            // QChar::LineSeparator.
+            summary.text = AddOnsSummary(index.data(Qt::DisplayRole).toString());
+            summary.textElideMode = Qt::ElideRight;
+            const QWidget* widget = summary.widget;
+            QStyle* style = widget ? widget->style() : QApplication::style();
+            style->drawControl(QStyle::CE_ItemViewItem, &summary, painter, widget);
+            return;
+        }
         QStyledItemDelegate::paint(painter, detail, index);
         return;
     }
@@ -264,10 +321,13 @@ QSize LibraryDelegate::sizeHint(const QStyleOptionViewItem& option,
                                 const QModelIndex& index) const {
     QSize size = QStyledItemDelegate::sizeHint(option, index);
     const auto type = index.data(GameListItem::TypeRole).value<GameListItemType>();
+    const auto row_type =
+        index.sibling(index.row(), 0).data(GameListItem::TypeRole).value<GameListItemType>();
     if (IsDirectoryRow(type)) {
         size.setHeight(RowHeight);
-    } else if (type == GameListItemType::Game && index.column() == 0) {
-        // The icon with 8 px above and below, never less than a directory row.
+    } else if (row_type == GameListItemType::Game) {
+        // The icon with 8 px above and below, never less than a directory row; every column
+        // of the row (the add-ons list included) takes that height.
         size.setHeight(std::max(RowHeight, GameIconSize() + 2 * Margin));
     }
     return size;

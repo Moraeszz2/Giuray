@@ -80,7 +80,8 @@
 
 namespace {
 
-constexpr int IconTargetSize = 256;
+// Covers are drawn up to ~300 px (more on a scaled screen): keep up to 512 px, never upscale.
+constexpr int IconTargetSize = 512;
 constexpr qint64 MaxIconBytes = 8 * 1024 * 1024;
 constexpr int MaxImageDimension = 8192;
 constexpr qint64 MaxImagePixels = 16 * 1024 * 1024;
@@ -136,7 +137,7 @@ std::vector<u8> EncodeSquareIcon(const QImage& source) {
     const int x = (source.width() - side) / 2;
     const int y = (source.height() - side) / (source.height() > source.width() ? 3 : 2);
     QImage img = source.copy(x, y, side, side).convertToFormat(QImage::Format_RGBA8888);
-    if (img.width() != IconTargetSize || img.height() != IconTargetSize) {
+    if (side > IconTargetSize) {
         img = img.scaled(IconTargetSize, IconTargetSize, Qt::IgnoreAspectRatio,
                          Qt::SmoothTransformation);
     }
