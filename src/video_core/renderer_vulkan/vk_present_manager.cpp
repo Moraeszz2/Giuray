@@ -25,7 +25,7 @@
 #include "video_core/vulkan_common/vulkan_device.h"
 #include "video_core/vulkan_common/vulkan_surface.h"
 #include "video_core/vulkan_common/vulkan_wrapper.h"
-#ifdef EGLANTINE_STREAMLINE
+#ifdef GIURAY_STREAMLINE
 #include "video_core/vulkan_common/streamline.h"
 #endif
 
@@ -234,7 +234,7 @@ PresentManager::~PresentManager() {
         present_thread.request_stop();
         present_thread.join();
     }
-#ifdef EGLANTINE_STREAMLINE
+#ifdef GIURAY_STREAMLINE
     Streamline::FrameGenSuspend();
 #endif
 }
@@ -258,7 +258,7 @@ Frame* PresentManager::GetRenderFrame() {
     frame->present_done.Reset();
     frame->color_space = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
     frame->present_spacing = {};
-#ifdef EGLANTINE_STREAMLINE
+#ifdef GIURAY_STREAMLINE
     frame->frame_gen = false;
 #endif
 
@@ -476,7 +476,7 @@ void PresentManager::UpdateHdrMetadata() {
 
 // Returns false after discarding a deferred or incompatible frame; creation exceptions propagate.
 bool PresentManager::RecreateSwapchain(Frame* frame) {
-#ifdef EGLANTINE_STREAMLINE
+#ifdef GIURAY_STREAMLINE
     Streamline::FrameGenSuspend();
 #endif
     if (swapchain.Create(*surface, frame->width, frame->height, frame->format,
@@ -545,7 +545,7 @@ void PresentManager::DiscardFrame(Frame* frame) {
 }
 
 void PresentManager::CopyToSwapchain(Frame* frame) {
-#ifdef EGLANTINE_STREAMLINE
+#ifdef GIURAY_STREAMLINE
     SCOPE_EXIT {
         if (frame->frame_gen) {
             Streamline::FrameGenClosePresent(frame->frame_gen_frame.index);
@@ -763,7 +763,7 @@ void PresentManager::CopyToSwapchainImpl(Frame* frame) {
     }
 
     // Present
-#ifdef EGLANTINE_STREAMLINE
+#ifdef GIURAY_STREAMLINE
     if (frame->frame_gen) {
         Streamline::FrameGenBeforePresent({
             .frame = frame->frame_gen_frame,
@@ -776,7 +776,7 @@ void PresentManager::CopyToSwapchainImpl(Frame* frame) {
     }
 #endif
     swapchain.Present(render_semaphore);
-#ifdef EGLANTINE_STREAMLINE
+#ifdef GIURAY_STREAMLINE
     if (frame->frame_gen) {
         Streamline::FrameGenAfterPresent(frame->frame_gen_frame.index);
     }

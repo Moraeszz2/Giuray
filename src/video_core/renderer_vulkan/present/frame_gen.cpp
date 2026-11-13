@@ -18,7 +18,7 @@
 #include "video_core/renderer_vulkan/vk_scheduler.h"
 #include "video_core/vulkan_common/vk_enum_string_helper.h"
 #include "video_core/vulkan_common/vulkan_device.h"
-#ifdef EGLANTINE_STREAMLINE
+#ifdef GIURAY_STREAMLINE
 #include "video_core/vulkan_common/streamline.h"
 #include "video_core/vulkan_common/streamline_frame_gen.h"
 #endif
@@ -45,7 +45,7 @@ constexpr auto ACTIVITY_LOG_INTERVAL = std::chrono::seconds(10);
 /// Why NVIDIA DLSS Frame Generation isn't this session's frame generator, if it isn't. Streamline
 /// decided that when the game started.
 [[nodiscard]] VideoCore::DlssgBlock DlssgBlocked() {
-#ifdef EGLANTINE_STREAMLINE
+#ifdef GIURAY_STREAMLINE
     if (Streamline::FrameGenSession()) {
         return VideoCore::DlssgBlock::None;
     }
@@ -71,7 +71,7 @@ constexpr auto ACTIVITY_LOG_INTERVAL = std::chrono::seconds(10);
     case VideoCore::DlssgBlock::NoGameInputs:
         return fmt::format("no game motion vectors for {:016X}", Settings::GetCurrentProgramID());
     case VideoCore::DlssgBlock::NotLoaded:
-#ifdef EGLANTINE_STREAMLINE
+#ifdef GIURAY_STREAMLINE
         if (std::string reason = Streamline::FrameGenUnavailableReason(); !reason.empty()) {
             return reason;
         }
@@ -356,7 +356,7 @@ void FrameGen::SetState(VideoCore::FrameGenState new_state, VkFormat format) {
         LOG_INFO(Render_Vulkan, "Frame generation on: {}, presenting {}",
                  ModeText(Settings::values.frame_gen_type.GetValue()), string_VkFormat(format));
         break;
-#ifdef EGLANTINE_STREAMLINE
+#ifdef GIURAY_STREAMLINE
     case VideoCore::FrameGenState::NvidiaFrameGen:
         LOG_INFO(Render_Vulkan,
                  "Frame generation on: NVIDIA DLSS-G {}x (numFramesToGenerateMax {}), presenting "

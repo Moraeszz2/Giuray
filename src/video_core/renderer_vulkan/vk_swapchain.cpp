@@ -27,7 +27,7 @@
 #include "video_core/vulkan_common/vulkan_device.h"
 #include "video_core/vulkan_common/vulkan_wrapper.h"
 #include "vulkan/vulkan_core.h"
-#ifdef EGLANTINE_STREAMLINE
+#ifdef GIURAY_STREAMLINE
 #include "video_core/vulkan_common/streamline.h"
 #include "video_core/vulkan_common/streamline_frame_gen.h"
 #endif
@@ -39,7 +39,7 @@ namespace {
 /// Streamline's DLSS Frame Generation presents and paces the frames in this format. Turning it
 /// on or off changes the present mode, which recreates the swapchain as NVIDIA asks.
 bool FrameGenPresents([[maybe_unused]] VkFormat format) {
-#ifdef EGLANTINE_STREAMLINE
+#ifdef GIURAY_STREAMLINE
     return Streamline::FrameGenActive() && Streamline::FrameGenSupportsSwapchain(format);
 #else
     return false;
@@ -48,14 +48,14 @@ bool FrameGenPresents([[maybe_unused]] VkFormat format) {
 
 /// DLSS-G is loaded, so Streamline makes the swapchains, whether or not it generates frames.
 bool FrameGenLoaded() {
-#ifdef EGLANTINE_STREAMLINE
+#ifdef GIURAY_STREAMLINE
     return Streamline::FrameGenSession();
 #else
     return false;
 #endif
 }
 
-#ifdef EGLANTINE_STREAMLINE
+#ifdef GIURAY_STREAMLINE
 /// Streamline asks for a flushed pipeline and no Vulkan calls while a feature unloads.
 void UnloadFrameGen(Scheduler& scheduler, const Device& device, std::string_view reason) {
     const auto paused = scheduler.PauseWorker();
@@ -392,7 +392,7 @@ void Swapchain::CreateSwapchain(const VkSurfaceCapabilitiesKHR& capabilities) {
     surface_format = ChooseSwapSurfaceFormat(formats, requested_format, requested_color_space);
     Common::DisplayHdrMonitor::Instance().SetPresentingHdr(surface_format.colorSpace !=
                                                            VK_COLOR_SPACE_SRGB_NONLINEAR_KHR);
-#ifdef EGLANTINE_STREAMLINE
+#ifdef GIURAY_STREAMLINE
     // The old swapchain is gone, so DLSS-G unloads before the new one is made.
     if (Streamline::FrameGenSession() &&
         !Streamline::FrameGenSupportsSwapchain(surface_format.format)) {
@@ -483,7 +483,7 @@ void Swapchain::CreateSwapchain(const VkSurfaceCapabilitiesKHR& capabilities) {
             result == VK_ERROR_NATIVE_WINDOW_IN_USE_KHR) {
             throw;
         }
-#ifdef EGLANTINE_STREAMLINE
+#ifdef GIURAY_STREAMLINE
         // Keep the game running without frame generation: DLSS-G unloaded, the hooks reach the
         // driver's swapchain.
         UnloadFrameGen(scheduler, device,

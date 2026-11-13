@@ -465,10 +465,10 @@ jobs:
             fsr4_library=(--library "$RUNNER_TEMP/fsr4-vk/$fsr4")
           fi
           "$tools/linuxdeploy-$arch.AppImage" --appdir AppDir \
-            --executable build/release/bin/giuray 
-            --executable build/release/bin/giuray-cli 
-            "${fsr4_library[@]}" 
-            --desktop-file dist/io.github.moraeszz2.giuray.desktop 
+            --executable build/release/bin/giuray \
+            --executable build/release/bin/giuray-cli \
+            "${fsr4_library[@]}" \
+            --desktop-file dist/io.github.moraeszz2.giuray.desktop \
             --icon-file "$icon" \
             --plugin qt \
             --output appimage
