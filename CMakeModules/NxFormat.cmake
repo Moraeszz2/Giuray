@@ -23,7 +23,13 @@ function(giuray_find_nxformat)
     set(tag V1.0.3)
     set(root "${GIURAY_NXFORMAT_ROOT}")
     if (NOT root)
-        if (WIN32 AND ARCHITECTURE_x86_64)
+        if (MINGW)
+            # The Windows release is an MSVC static library (it needs __chkstk, _fltused and the
+            # MSVC type_info), which MinGW's linker can't link.
+            message(WARNING "NX converter disabled: the prebuilt nxformat library is for MSVC "
+                            "and clang-cl, not MinGW. Loading .nx games is not affected.")
+            return()
+        elseif (WIN32 AND ARCHITECTURE_x86_64)
             set(platform windows-x64)
             set(sha256 f96148cf062adaa0aed3069945f08e1d7537e38d490f714f3bb27767fc297066)
         elseif (APPLE)
